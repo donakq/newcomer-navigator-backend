@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
@@ -28,3 +31,12 @@ def health() -> HealthResponse:
 
 for module in (profile, checklist, tasks, chat):
     app.include_router(module.router)
+
+
+DEMO_PAGE = Path(__file__).resolve().parent / "static" / "index.html"
+
+
+@app.get("/", include_in_schema=False)
+def demo_page() -> FileResponse:
+    """Minimal demo UI; the real frontend replaces it."""
+    return FileResponse(DEMO_PAGE)
