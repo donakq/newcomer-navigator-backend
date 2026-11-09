@@ -47,10 +47,14 @@ All requests send `X-User-Id: <uuid4>` (the frontend generates it once and keeps
 
 ## Branches and environments
 
-| Branch | Vercel environment | URL |
+Two Vercel projects deploy from this repo, both public:
+
+| Branch | Vercel project | URL |
 |---|---|---|
-| `prod` | Production | https://newcomer-navigator-backend.vercel.app |
-| `pre-prod` | Preview | the `pre-prod` branch URL shown in Vercel → Deployments |
+| `prod` | `newcomer-navigator-backend` | https://newcomer-navigator-backend.vercel.app |
+| `pre-prod` | `newcomer-navigator-preprod` | https://newcomer-navigator-preprod.vercel.app |
+
+Each project has its own environment variables (e.g. `LLM_API_KEY`), so set them in both.
 
 Workflow:
 1. Make changes on a feature branch and open a PR into `pre-prod`.
