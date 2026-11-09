@@ -5,8 +5,7 @@ FastAPI backend for Newcomer Navigator, which helps new F-1 students in Washingt
 ## Layout
 
 ```
-api/index.py        Vercel entrypoint
-app/main.py         FastAPI app, CORS, /api/health
+app/main.py         FastAPI app (Vercel's FastAPI preset uses this as the entrypoint), demo page at /
 app/routers/        profile, checklist, tasks, chat endpoints
 app/schemas/        Pydantic models (the API contract)
 app/services/       profile, rules engine, checklist, tasks, chat logic
@@ -46,9 +45,23 @@ All requests send `X-User-Id: <uuid4>` (the frontend generates it once and keeps
 
 > **Prototype limits:** user data lives in memory, so it resets whenever Vercel recycles the function (no database yet). Task content in `catalog/` is placeholder text marked `TODO(content)`. Chat replies come from the LLM only when `LLM_API_KEY` is set; otherwise a fixed fallback message is returned.
 
+## Branches and environments
+
+| Branch | Vercel environment | URL |
+|---|---|---|
+| `prod` | Production | https://newcomer-navigator-backend.vercel.app |
+| `pre-prod` | Preview | the `pre-prod` branch URL shown in Vercel → Deployments |
+
+Workflow:
+1. Make changes on a feature branch and open a PR into `pre-prod`.
+2. After merging, Vercel redeploys `pre-prod`; test it on the pre-prod URL.
+3. When it looks good, open a PR from `pre-prod` into `prod`. Merging it deploys production.
+
+Never push directly to `prod`.
+
 ## Deploy (Vercel)
 
-1. Import this repo at vercel.com/new.
+1. Import this repo at vercel.com/new with the **FastAPI** preset. No `vercel.json` is needed: Vercel runs `app/main.py` and bundles all project files (including `catalog/`).
 2. Set env vars: `LLM_API_KEY`, `CORS_ORIGINS` (comma-separated frontend origins), optionally `FAST_MODEL`.
 3. Check `https://<deployment>/api/health` (`tasks` should be 3) and `https://<deployment>/docs`.
 
