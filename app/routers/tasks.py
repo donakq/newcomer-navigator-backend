@@ -3,7 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.deps import current_user
-from app.schemas.api import StepUpdateRequest, TaskDetail
+from app.schemas.api import DsoDraft, DsoDraftRequest, StepUpdateRequest, TaskDetail
+from app.services.chat import draft_dso_email
 from app.services.store import Store, get_store
 from app.services.tasks import get_task_detail, set_step_done
 
@@ -24,3 +25,14 @@ def update_step(
     store: Store = Depends(get_store),
 ):
     return set_step_done(store, uid, task_id, step_id, body.done)
+
+
+@router.post("/{task_id}/steps/{step_id}/dso-draft", response_model=DsoDraft)
+def dso_draft(
+    task_id: str,
+    step_id: str,
+    body: DsoDraftRequest,
+    uid: UUID = Depends(current_user),
+    store: Store = Depends(get_store),
+):
+    return draft_dso_email(store, uid, task_id, step_id, body.question)
