@@ -10,3 +10,10 @@ H = {"X-User-Id": USER_ID}
 @pytest.fixture
 def client():
     return TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def fresh_store():
+    from app.services.store import reset_store
+
+    reset_store()
