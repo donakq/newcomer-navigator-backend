@@ -5,6 +5,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from app.schemas.profile import Profile
 from app.services.store import TaskStatus
 
 
@@ -89,3 +90,32 @@ class ChatRequest(BaseModel):
 
 class DsoDraftRequest(BaseModel):
     question: str | None = Field(None, max_length=2000)
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    version: str
+    tasks: int
+
+
+class ProfileResponse(BaseModel):
+    profile: Profile
+
+
+class ProfileUpdateResponse(BaseModel):
+    profile: Profile
+    checklist_diff: ChecklistDiff
+
+
+class ChecklistResponse(BaseModel):
+    tasks: list[ChecklistItem]
+
+
+class ChecklistTaskResponse(BaseModel):
+    task: ChecklistItem
+
+
+class StepUpdateResponse(BaseModel):
+    step: Step
+    task_status: TaskStatus
+    progress: float

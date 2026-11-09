@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.deps import current_user
-from app.schemas.api import DsoDraft, DsoDraftRequest, StepUpdateRequest, TaskDetail
+from app.schemas.api import DsoDraft, DsoDraftRequest, StepUpdateRequest, StepUpdateResponse, TaskDetail
 from app.services.chat import draft_dso_email
 from app.services.store import Store, get_store
 from app.services.tasks import get_task_detail, set_step_done
@@ -16,7 +16,7 @@ def read_task(task_id: str, uid: UUID = Depends(current_user), store: Store = De
     return get_task_detail(store, uid, task_id)
 
 
-@router.patch("/{task_id}/steps/{step_id}")
+@router.patch("/{task_id}/steps/{step_id}", response_model=StepUpdateResponse)
 def update_step(
     task_id: str,
     step_id: str,

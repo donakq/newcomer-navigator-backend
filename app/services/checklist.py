@@ -62,8 +62,12 @@ def _build_items(store: Store, uid: UUID, task_ids: list[str]) -> dict[str, Chec
     profile = store.get_profile(uid)
     active = _active_tasks(store, uid)
     states = {tid: task_progress(store, uid, catalog.tasks[tid], profile) for tid in active}
-    # A dependency blocks only while it is on the user's list and not finished.
-    blocking = {tid for tid, (status, _) in states.items() if status != "done"}
+    # A dependency blocks only while it is on the user's list, still applies, and is not finished.
+    blocking = {
+        tid
+        for tid, (status, _) in states.items()
+        if status != "done" and not active[tid].maybe_not_applicable
+    }
     items = {}
     for tid in task_ids:
         task = catalog.tasks[tid]

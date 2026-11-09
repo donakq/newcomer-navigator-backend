@@ -2,7 +2,7 @@ from uuid import UUID
 
 from app.catalog_loader import get_catalog
 from app.errors import ApiError
-from app.schemas.api import Source, Step, TaskDetail
+from app.schemas.api import Source, Step, StepUpdateResponse, TaskDetail
 from app.schemas.catalog import CatalogStep, CatalogTask
 from app.schemas.profile import Profile
 from app.services.checklist import task_progress
@@ -49,7 +49,7 @@ def get_task_detail(store: Store, uid: UUID, task_id: str) -> TaskDetail:
     )
 
 
-def set_step_done(store: Store, uid: UUID, task_id: str, step_id: str, done: bool) -> dict:
+def set_step_done(store: Store, uid: UUID, task_id: str, step_id: str, done: bool) -> StepUpdateResponse:
     task = get_catalog_task(task_id)
     profile = store.get_profile(uid)
     step = get_visible_step(task, profile, step_id)
@@ -59,4 +59,4 @@ def set_step_done(store: Store, uid: UUID, task_id: str, step_id: str, done: boo
         task_id=task_id, status=status, source="manual"
     )
     store.save_user_task(uid, user_task.model_copy(update={"status": status}))
-    return {"step": _to_step(step, done), "task_status": status, "progress": progress}
+    return StepUpdateResponse(step=_to_step(step, done), task_status=status, progress=progress)

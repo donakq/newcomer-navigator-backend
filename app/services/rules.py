@@ -15,21 +15,34 @@ class Recommendation(BaseModel):
     blocked_by: list[str]
 
 
-def evaluate(cond: Condition, profile: dict[str, Any]) -> bool:
+def _evaluate3(cond: Condition, profile: dict[str, Any]) -> bool | None:
+    """Three-valued logic: None means "depends on an unanswered question"."""
     if "all" in cond:
-        return all(evaluate(c, profile) for c in cond["all"])
+        results = [_evaluate3(c, profile) for c in cond["all"]]
+        if False in results:
+            return False
+        return None if None in results else True
     if "any" in cond:
-        return any(evaluate(c, profile) for c in cond["any"])
+        results = [_evaluate3(c, profile) for c in cond["any"]]
+        if True in results:
+            return True
+        return None if None in results else False
     if "not" in cond:
-        return not evaluate(cond["not"], profile)
+        inner = _evaluate3(cond["not"], profile)
+        return None if inner is None else not inner
     value = profile.get(cond["field"])
-    if value is None:  # unanswered questions never match
-        return False
+    if value is None:
+        return None
     if "eq" in cond:
         return value == cond["eq"]
     if "in" in cond:
         return value in cond["in"]
     raise ValueError(f"unknown condition: {cond}")
+
+
+def evaluate(cond: Condition, profile: dict[str, Any]) -> bool:
+    """True only when the answers given so far definitely satisfy the condition."""
+    return _evaluate3(cond, profile) is True
 
 
 def recommend(
