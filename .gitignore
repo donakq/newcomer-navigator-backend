@@ -222,3 +222,4 @@ __marimo__/
 # Project additions
 .vercel/
 .DS_Store
+.superpowers/
