@@ -1,0 +1,22 @@
+# TODO(content): placeholder — replace with team-verified content
+id: us_phone
+version: 1
+title: Get a US phone number
+when:
+  all:
+    - {field: in_us, eq: true}
+    - {field: has_us_phone, eq: false}
+reason: Banks, schools and employers need a US phone number to reach you.
+depends_on: []
+personalize_on: []
+steps:
+  - id: choose_plan
+    title: Choose a carrier and plan
+    materials: []
+    sources:
+      - {url: "https://example.com/TODO", title: TODO, verified_at: 2026-11-08}
+  - id: activate_sim
+    title: Buy and activate a SIM or eSIM
+    materials: [Passport]
+    sources:
+      - {url: "https://example.com/TODO", title: TODO, verified_at: 2026-11-08}
