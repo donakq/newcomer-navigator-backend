@@ -16,9 +16,9 @@ This repo holds both parts of the app:
 |---|---|---|
 | Branch | `pre-prod` | `prod` |
 | Backend | https://newcomer-navigator-preprod.vercel.app | https://newcomer-navigator-backend.vercel.app |
-| Frontend | not deployed yet | not deployed yet |
+| Frontend | https://newcomer-navigator-web-preprod.vercel.app | https://newcomer-navigator-web.vercel.app |
 
-All sites are public. The backend serves its API docs at `/docs`.
+All sites are public. The backend serves its API docs at `/docs`; its root `/` redirects there.
 
 ## Workflow
 

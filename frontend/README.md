@@ -7,8 +7,8 @@ The files here (`index.html`, `config.js`) are a **mock**: a single static page 
 | Frontend runs on | Backend it should call |
 |---|---|
 | `localhost` | http://127.0.0.1:8000 |
-| pre-prod | https://newcomer-navigator-preprod.vercel.app |
-| prod | https://newcomer-navigator-backend.vercel.app |
+| pre-prod (`newcomer-navigator-web-preprod.vercel.app`) | https://newcomer-navigator-preprod.vercel.app |
+| prod (`newcomer-navigator-web.vercel.app`) | https://newcomer-navigator-backend.vercel.app |
 
 The mock picks the backend in `config.js` by hostname. In the real frontend, use an environment variable set per Vercel project instead (for example `NEXT_PUBLIC_API_BASE_URL` or `VITE_API_BASE_URL`).
 
@@ -43,7 +43,7 @@ Two Vercel projects, both with **Root Directory** `frontend`:
 
 | Vercel project | Production branch |
 |---|---|
-| frontend prod (not created yet) | `prod` |
-| frontend pre-prod (not created yet) | `pre-prod` |
+| `newcomer-navigator-web` → https://newcomer-navigator-web.vercel.app | `prod` |
+| `newcomer-navigator-web-preprod` → https://newcomer-navigator-web-preprod.vercel.app | `pre-prod` |
 
 For the mock, use the **Other** preset with no build command. When the real frontend lands, switch the preset to its framework and set the API base URL env var in each project.
