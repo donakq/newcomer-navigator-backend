@@ -2,31 +2,37 @@
 
 FastAPI backend for Newcomer Navigator, which helps new F-1 students in Washington State figure out which admin tasks they need to do (SSN, bank account, phone, ...), how to do them, and track their progress.
 
-## Layout
+| Environment | Branch | URL |
+|---|---|---|
+| Pre-prod (testing) | `pre-prod` | https://newcomer-navigator-preprod.vercel.app |
+| Production | `prod` | https://newcomer-navigator-backend.vercel.app |
 
-```
-app/main.py         FastAPI app (Vercel's FastAPI preset uses this as the entrypoint), demo page at /
-app/routers/        profile, checklist, tasks, chat endpoints
-app/schemas/        Pydantic models (the API contract)
-app/services/       profile, rules engine, checklist, tasks, chat logic
-app/ai/             LLM client, prompts, output validators
-app/db/             SQLAlchemy models and session
-catalog/            team-curated task YAML files and events.yaml
-scripts/            offline scripts (official source ingestion, cleanup)
-tests/
-```
+Both sites are public. Each one serves a demo page at `/` and the API docs at `/docs`.
 
-## Local development
+## Status
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-cp .env.example .env
-uvicorn app.main:app --reload
-```
+This is a prototype:
+- **Data is not saved.** User data lives in memory and resets whenever Vercel recycles the function. A database comes later.
+- **Task content is placeholder text.** Everything in `catalog/` is marked `TODO(content)` and has not been verified against official sources.
+- **Chat is a stub.** `/api/chat` sends the message to the LLM when `LLM_API_KEY` is set, otherwise it returns a fixed fallback reply. The live LLM call has not been verified on Vercel yet.
+- **The demo page is temporary.** `app/static/index.html` is a minimal UI for showing the team; the real frontend replaces it.
 
-API docs: http://127.0.0.1:8000/docs
+## Workflow
+
+1. Create a branch from `pre-prod`, make your changes, and open a PR into `pre-prod`.
+2. After the PR is merged, Vercel redeploys pre-prod automatically. Test on the pre-prod URL.
+3. When it looks good, open a PR from `pre-prod` into `prod`. Merging it updates production.
+
+Never push directly to `prod`.
+
+## Editing task content
+
+Tasks live in `catalog/tasks/<task_id>.yaml`, one file per task. Events the chat can recognize live in `catalog/events.yaml`. The fields are described in the design notes (Task Catalog Schema).
+
+- Copy an existing task file as a starting point.
+- When you change a task's steps or text, bump its `version` by 1.
+- Use only profile fields that exist in `app/schemas/profile.py` in `when` conditions.
+- Run `pytest` before opening the PR. A broken YAML file stops the whole app from starting, so the site would go down.
 
 ## API
 
@@ -40,37 +46,62 @@ All requests send `X-User-Id: <uuid4>` (the frontend generates it once and keeps
 | POST | `/api/checklist/{task_id}` | `{"action": "add" \| "dismiss"}` |
 | GET | `/api/tasks/{task_id}` | Task steps, materials, official sources, done flags |
 | PATCH | `/api/tasks/{task_id}/steps/{step_id}` | `{"done": true \| false}` |
-| POST | `/api/tasks/{task_id}/steps/{step_id}/dso-draft` | Email draft for asking the DSO |
+| POST | `/api/tasks/{task_id}/steps/{step_id}/dso-draft` | Email draft for asking the DSO (fixed template) |
 | POST | `/api/chat` | `{"message": "..."}` |
 
-> **Prototype limits:** user data lives in memory, so it resets whenever Vercel recycles the function (no database yet). Task content in `catalog/` is placeholder text marked `TODO(content)`. Chat replies come from the LLM only when `LLM_API_KEY` is set; otherwise a fixed fallback message is returned.
+## Layout
 
-## Branches and environments
+```
+app/main.py           FastAPI app (Vercel entrypoint); serves the demo page at /
+app/static/           demo page (temporary)
+app/routers/          profile, checklist, tasks, chat endpoints
+app/schemas/          Pydantic models: the API contract, profile, catalog format
+app/services/         rules engine, checklist, profile, tasks, chat, in-memory store
+app/ai/client.py      the only module that calls the LLM
+app/catalog_loader.py loads and validates catalog/ at startup
+app/errors.py         error format; app/deps.py: X-User-Id check
+catalog/              team-maintained task YAML files and events.yaml
+docs/                 implementation plans
+tests/
+```
 
-Two Vercel projects deploy from this repo, both public:
+`app/db/` and `scripts/` are empty placeholders for the database and the official-source ingestion script.
 
-| Branch | Vercel project | URL |
-|---|---|---|
-| `prod` | `newcomer-navigator-backend` | https://newcomer-navigator-backend.vercel.app |
-| `pre-prod` | `newcomer-navigator-preprod` | https://newcomer-navigator-preprod.vercel.app |
+## Local development
 
-Each project has its own environment variables (e.g. `LLM_API_KEY`), so set them in both.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+uvicorn app.main:app --reload
+```
 
-Workflow:
-1. Make changes on a feature branch and open a PR into `pre-prod`.
-2. After merging, Vercel redeploys `pre-prod`; test it on the pre-prod URL.
-3. When it looks good, open a PR from `pre-prod` into `prod`. Merging it deploys production.
+Then open http://127.0.0.1:8000 (demo page) or http://127.0.0.1:8000/docs (API docs).
 
-Never push directly to `prod`.
-
-## Deploy (Vercel)
-
-1. Import this repo at vercel.com/new with the **FastAPI** preset. No `vercel.json` is needed: Vercel runs `app/main.py` and bundles all project files (including `catalog/`).
-2. Set env vars: `LLM_API_KEY`, `CORS_ORIGINS` (comma-separated frontend origins), optionally `FAST_MODEL`.
-3. Check `https://<deployment>/api/health` (`tasks` should be 3) and `https://<deployment>/docs`.
-
-## Tests
+Run the tests:
 
 ```bash
 pytest
 ```
+
+## Deployment (Vercel)
+
+Two Vercel projects deploy from this one repo:
+
+| Vercel project | Production branch | Notes |
+|---|---|---|
+| `newcomer-navigator-backend` | `prod` | |
+| `newcomer-navigator-preprod` | `pre-prod` | A separate project so its URL is public; preview deployments require a Vercel login |
+
+Both use the **FastAPI** preset with default settings. No `vercel.json` is needed: Vercel runs `app/main.py` and bundles every project file, including `catalog/`. A push to the production branch deploys automatically.
+
+Environment variables are set per project, so set them in both:
+
+| Variable | Needed? | Purpose |
+|---|---|---|
+| `LLM_API_KEY` | For chat | API key for the LLM |
+| `FAST_MODEL` | Optional | Model id for chat (default `claude-haiku-5-5`) |
+| `CORS_ORIGINS` | Only when a frontend on another domain calls the API | Comma-separated origins |
+
+After a deploy, `/api/health` should return `"tasks": 3`.
