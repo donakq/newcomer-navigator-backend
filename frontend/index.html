@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Newcomer Navigator Demo</title>
-<!-- Minimal demo UI for the backend. The real frontend will replace this file. -->
+<!-- Mock frontend: a minimal UI that calls the backend API. The real frontend replaces this folder. -->
 <style>
   :root { --bg:#f7f7f5; --card:#fff; --text:#1d1d1f; --muted:#6b6b6b; --line:#e3e3e0; --accent:#2563eb; --warn:#b45309; }
   @media (prefers-color-scheme: dark) {
@@ -38,7 +38,7 @@
 <main>
   <div style="grid-column:1/-1">
     <h1>Newcomer Navigator</h1>
-    <div class="sub">后端 demo 页面 · 内容为占位示例，未经核实 · <a href="/docs">API docs</a></div>
+    <div class="sub">Mock 前端 · 内容为占位示例，未经核实 · <a id="docs-link" href="#">API docs</a></div>
   </div>
 
   <section class="card">
@@ -62,7 +62,9 @@
   </section>
 </main>
 
+<script src="config.js"></script>
 <script>
+document.getElementById("docs-link").href = API_BASE + "/docs";
 const QUESTIONS = [
   ["in_us", "已经到美国了吗？", "bool"],
   ["has_us_phone", "有美国手机号吗？", "bool"],
@@ -84,7 +86,7 @@ function getUserId() {
 const USER_ID = getUserId();
 
 async function api(method, path, body) {
-  const resp = await fetch(path, {
+  const resp = await fetch(API_BASE + path, {
     method,
     headers: { "X-User-Id": USER_ID, "Content-Type": "application/json" },
     body: body ? JSON.stringify(body) : undefined,
