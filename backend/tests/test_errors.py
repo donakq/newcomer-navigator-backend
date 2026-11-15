@@ -1,12 +1,11 @@
-from uuid import UUID
+"""Error format and bearer-token parsing."""
 
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
-from app.deps import current_user
+from app.deps import current_session
 from app.errors import register_error_handlers
-from tests.conftest import H, USER_ID
 
 
 class Body(BaseModel):
@@ -18,35 +17,44 @@ def make_client() -> TestClient:
     register_error_handlers(test_app)
 
     @test_app.get("/whoami")
-    def whoami(uid: UUID = Depends(current_user)):
-        return {"user_id": str(uid)}
+    def whoami(token: str = Depends(current_session)):
+        return {"token": token}
 
     @test_app.post("/echo")
     def echo(body: Body):
         return body
 
-    return TestClient(test_app)
+    @test_app.get("/boom")
+    def boom():
+        raise RuntimeError("kaboom")
+
+    return TestClient(test_app, raise_server_exceptions=False)
 
 
-def test_missing_user_id_returns_400():
+def test_missing_token_returns_401():
     resp = make_client().get("/whoami")
-    assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "bad_user_id"
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "unauthenticated"
 
 
-def test_malformed_user_id_returns_400():
-    resp = make_client().get("/whoami", headers={"X-User-Id": "not-a-uuid"})
-    assert resp.status_code == 400
-    assert resp.json()["error"]["code"] == "bad_user_id"
+def test_non_bearer_scheme_returns_401():
+    resp = make_client().get("/whoami", headers={"Authorization": "Basic abc"})
+    assert resp.status_code == 401
 
 
-def test_valid_user_id_passes():
-    resp = make_client().get("/whoami", headers=H)
-    assert resp.status_code == 200
-    assert resp.json() == {"user_id": USER_ID}
+def test_bearer_token_passes():
+    resp = make_client().get("/whoami", headers={"Authorization": "Bearer abc123"})
+    assert resp.json() == {"token": "abc123"}
 
 
 def test_validation_error_uses_error_format():
     resp = make_client().post("/echo", json={"count": "many"})
     assert resp.status_code == 422
     assert resp.json()["error"]["code"] == "validation_error"
+
+
+def test_unhandled_exception_uses_error_format():
+    resp = make_client().get("/boom")
+    assert resp.status_code == 500
+    assert resp.json()["error"]["code"] == "internal_error"
+    assert "kaboom" not in resp.text

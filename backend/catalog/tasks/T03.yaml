@@ -1,0 +1,19 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T03
+policy_pack_id: uw-opt
+title: Confirm you received your OPT I-20
+order: 3
+prerequisites: [T02]
+due_type: EVENT_BASED
+timeline_node: N1b
+deadline_node: null
+complete_requires: [dso_rec_date]
+waiting_records: null
+steps:
+  - "Check the OPT recommendation and dates on your new I-20."
+  - "Enter your DSO recommendation date in the app."
+  - "If anything looks wrong, contact UW ISS."
+documents:
+  - name: New OPT I-20
+    where_to_get: Issued by UW
+source_ids: [uw-post-completion-opt, uw-opt-faq]

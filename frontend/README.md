@@ -1,49 +1,53 @@
-# Frontend
+# Paperwork Navigator — Frontend
 
-The files here (`index.html`, `config.js`) are a **mock**: a single static page with no build step that exercises every backend endpoint. Replace them with the real frontend; any framework works (Next.js, Vite + React, ...).
+Next.js and TypeScript frontend for the UW Post-Completion OPT MVP.
+
+## Local development
+
+Start the backend first (see [backend/README.md](../backend/README.md)); it serves the API at http://127.0.0.1:8000. Then:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:3000 and sign in with any email. The mock backend sends no email; the code is always `000000`.
 
 ## Talking to the backend
 
-| Frontend runs on | Backend it should call |
+All data comes from the backend OPT API. The frontend keeps no rules or date math of its own.
+
+- `lib/api.ts`: fetch wrapper and response types. Sends `Authorization: Bearer <token>`; the token from login is kept in localStorage.
+- `lib/demo.ts`: shared client store behind `useDemoProfile()`. It maps API fields to the page fields, sends edits, and turns the backend plan into the Timeline view. A `401` sends the user back to `/login`.
+- Backend URL: `NEXT_PUBLIC_API_BASE_URL` (see `.env.example`); defaults to http://127.0.0.1:8000.
+
+| Frontend runs on | `NEXT_PUBLIC_API_BASE_URL` |
 |---|---|
-| `localhost` | http://127.0.0.1:8000 |
-| pre-prod (`newcomer-navigator-web-preprod.vercel.app`) | https://newcomer-navigator-preprod.vercel.app |
-| prod (`newcomer-navigator-web.vercel.app`) | https://newcomer-navigator-backend.vercel.app |
+| `localhost` | http://127.0.0.1:8000 (default) |
+| pre-prod | https://newcomer-navigator-preprod.vercel.app |
+| prod | https://newcomer-navigator-backend.vercel.app |
 
-The mock picks the backend in `config.js` by hostname. In the real frontend, use an environment variable set per Vercel project instead (for example `NEXT_PUBLIC_API_BASE_URL` or `VITE_API_BASE_URL`).
+The full API contract is the backend's `/docs` page.
 
-Rules every request must follow:
-- Send header `X-User-Id: <uuid4>`. Generate it once with `crypto.randomUUID()` and keep it in localStorage.
-- Errors come back as `{"error": {"code": "...", "message": "..."}}`.
-- The backend allows requests from any origin for now, so CORS needs no setup.
-
-## API contract
-
-The backend's `/openapi.json` is the contract; browse it at `/docs`. To get TypeScript types instead of copying field names by hand:
+## Production build
 
 ```bash
-npx openapi-typescript https://newcomer-navigator-preprod.vercel.app/openapi.json -o src/api/schema.ts
+npm run build
 ```
 
-Re-run it whenever the backend changes an endpoint.
+## Current status
 
-## Running the mock locally
+The pages are connected to the backend OPT API, which still runs on **mock data**:
+- Login is real in shape (email, then a code) but sends no email; the code is `000000`.
+- Each user's data lives in the backend's memory and is lost when the backend restarts.
+- Task content, processing times, sources and office contacts are placeholders until the policy reviewer fills them in (`backend/catalog/`).
+- The AI assistant is a stub: it refuses out-of-scope topics and answers in the user's language, but does not really answer OPT questions yet.
 
-Start the backend first (see [backend/README.md](../backend/README.md)), then from this folder:
+OPT timeline dates are not verified and must not be used as immigration guidance.
 
-```bash
-python3 -m http.server 5173
-```
+## Deployment
 
-Open http://localhost:5173.
+The frontend deploys from the `frontend/` directory with Next.js on Vercel. Set `NEXT_PUBLIC_API_BASE_URL` in each Vercel project to the matching backend.
 
-## Deployment (Vercel)
-
-Two Vercel projects, both with **Root Directory** `frontend`:
-
-| Vercel project | Production branch |
-|---|---|
-| `newcomer-navigator-web` → https://newcomer-navigator-web.vercel.app | `prod` |
-| `newcomer-navigator-web-preprod` → https://newcomer-navigator-web-preprod.vercel.app | `pre-prod` |
-
-For the mock, use the **Other** preset with no build command. When the real frontend lands, switch the preset to its framework and set the API base URL env var in each project.
+Changes are submitted through a feature branch into pre-prod, then promoted to prod after testing.

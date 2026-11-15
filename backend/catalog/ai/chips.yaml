@@ -1,0 +1,12 @@
+# C6 AI chips by page / stage (Data Spec 2.6 / PRD 7.2). TODO(PM): confirm wording.
+home: ["Why does my graduation date matter?", "How do I change my OPT selection?"]
+checklist_overview: ["What is OPT?", "What's my first step?", "Who do I contact at UW?"]
+select_opt: ["Which OPT is right for me?", "What's the difference between the OPT types?"]
+checklist_opt: ["What should I do next?", "When is my filing deadline?", "What documents do I need?"]
+task_T02: ["What is an OPT I-20?", "How do I request it at UW?", "How long does UW take?"]
+task_T03: ["Where do I find my recommendation date?", "What if my I-20 has an error?"]
+task_T04: ["What documents do I need?", "Where do I get my I-94?", "Which old I-20s should I include?"]
+task_T05: ["What is Form I-765?", "How do I file it?", "What happens after I file?"]
+task_T06: ["How do I check my case status?", "What if I get an RFE?", "When can I start working?"]
+timeline: ["How should I pick my start date?", "What if my EAD comes late?", "Why is this date \"unconfirmed\"?"]
+any_page: ["I'm stuck", "Contact My International Student Office"]

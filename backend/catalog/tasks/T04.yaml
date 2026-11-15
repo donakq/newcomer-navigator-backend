@@ -1,0 +1,29 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T04
+policy_pack_id: uw-opt
+title: Prepare your Form I-765 documents
+order: 4
+prerequisites: []                  # can run in parallel with T02
+due_type: RECOMMENDED
+timeline_node: N3
+deadline_node: null
+complete_requires: []
+waiting_records: null
+steps:
+  - "Gather documents following the current USCIS instructions."
+  - "Choose your OPT start date."
+  - "Decide whether to use premium processing."
+documents:
+  - name: New OPT I-20
+    where_to_get: Issued by UW
+  - name: I-94
+    where_to_get: CBP I-94 website
+  - name: Passport
+    where_to_get: Your own document
+  - name: Passport-style photos
+    where_to_get: A photo service
+  - name: Previous I-20s or EAD cards, if any
+    where_to_get: Your records
+  - name: Filing fee
+    where_to_get: See the current USCIS instructions
+source_ids: [uscis-i765, cbp-i94]

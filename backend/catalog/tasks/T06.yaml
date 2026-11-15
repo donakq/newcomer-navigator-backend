@@ -1,0 +1,19 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T06
+policy_pack_id: uw-opt
+title: Track your USCIS case
+order: 6
+prerequisites: [T05]
+due_type: ESTIMATE
+timeline_node: N6
+deadline_node: null
+complete_requires: []
+waiting_records: null
+steps:
+  - "Check your case status online with your receipt number."
+  - "Watch for a Request for Evidence (RFE)."
+  - "When your EAD card arrives, check the information on it."
+documents:
+  - name: Receipt Notice (I-797C)
+    where_to_get: Mailed by USCIS
+source_ids: [uscis-case-status, uscis-processing-times]

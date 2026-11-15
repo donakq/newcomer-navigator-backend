@@ -3,15 +3,15 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
-from app.catalog_loader import get_catalog
 from app.errors import register_error_handlers
-from app.routers import chat, checklist, profile, tasks
-from app.schemas.api import HealthResponse
+from app.opt.content import get_content
+from app.routers import assistant, auth, me, schools
+from app.schemas.opt import HealthResponse
 
-# Load and validate the task catalog at import time so broken YAML fails the deploy, not a request.
-CATALOG_TASK_COUNT = len(get_catalog().tasks)
+# Load and validate the OPT content YAML at import time so broken YAML fails the deploy, not a request.
+OPT_TASK_COUNT = len(get_content().tasks)
 
-app = FastAPI(title="Newcomer Navigator API", version=config.APP_VERSION)
+app = FastAPI(title="Paperwork Navigator API", version=config.APP_VERSION)
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,10 +24,10 @@ register_error_handlers(app)
 
 @app.get("/api/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    return HealthResponse(ok=True, version=config.APP_VERSION, tasks=CATALOG_TASK_COUNT)
+    return HealthResponse(ok=True, version=config.APP_VERSION, tasks=OPT_TASK_COUNT)
 
 
-for module in (profile, checklist, tasks, chat):
+for module in (auth, schools, me, assistant):
     app.include_router(module.router)
 
 

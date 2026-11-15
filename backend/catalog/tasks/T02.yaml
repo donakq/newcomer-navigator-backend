@@ -1,0 +1,19 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T02
+policy_pack_id: uw-opt
+title: Request your OPT I-20 from UW ISS
+order: 2
+prerequisites: []
+due_type: RECOMMENDED              # PRD: SCHOOL / RECOMMENDED
+timeline_node: N1
+deadline_node: null
+complete_requires: []
+waiting_records: i20_request_date
+steps:
+  - "Submit your OPT request the way UW ISS requires (system and forms per the Policy Pack)."
+  - "Submit inside the school's request window."
+  - "Wait for UW ISS to review it."
+documents:
+  - name: Per UW ISS requirements
+    where_to_get: UW Policy Pack
+source_ids: [uw-post-completion-opt]
