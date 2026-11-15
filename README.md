@@ -52,4 +52,4 @@ Open http://localhost:3000. The frontend calls the backend at http://127.0.0.1:8
 
 ## Status
 
-This is a prototype. User data lives in memory and resets when Vercel recycles the backend, task content is placeholder text, and chat is a stub. See [backend/README.md](backend/README.md#status).
+This is a prototype. User data is stored in Postgres (Neon), but login is mock (code `000000`), task content is placeholder text, and the AI assistant is a stub. See [backend/README.md](backend/README.md#status).

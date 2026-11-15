@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.mock.session_store import UserState
+from app.store import UserState
 from app.routers.me import current_state
 from app.mock import opt_assistant
 from app.schemas.opt import AssistantRequest, AssistantResponse

@@ -5,7 +5,7 @@ FastAPI API for Paperwork Navigator (UW post-completion OPT, PRD v1.3). Branches
 ## Status
 
 This is a prototype:
-- **Data is not saved for long.** Each user's data lives in server memory (`app/mock/session_store.py`) and resets whenever the server restarts or Vercel recycles the function. Postgres comes later.
+- **Data is stored in Postgres** when `DATABASE_URL` is set (both Vercel backends use Neon). Without it, the backend keeps data in memory, which resets on every restart; that is fine for quick local work and is what most tests use.
 - **Login is mock.** No email is sent; the code is always `000000`.
 - **Content is placeholder text.** Everything in `catalog/` is marked `TODO(reviewer)` or `TODO(PM)` and has not been verified against official sources.
 - **The AI assistant is a stub.** `/api/assistant/messages` refuses out-of-scope topics and answers in the user's language, but does not really answer OPT questions yet.
@@ -66,7 +66,8 @@ app/routers/          auth, schools, me (all /api/me endpoints), assistant
 app/schemas/opt.py    Pydantic models: the API contract and PRD enums
 app/opt/timeline.py   OPT date engine: N1–N7, risk labels (pure functions, no LLM)
 app/opt/content.py    loads and validates the content YAML in catalog/ at startup
-app/mock/             in-memory users and sessions, demo student, stub assistant
+app/store/            storage: Store interface, memory.py (no DATABASE_URL), sql.py (Postgres tables)
+app/mock/             demo student, stub assistant
 app/ai/client.py      the only module that calls the LLM (used by the real assistant later)
 app/errors.py         error format; app/deps.py: bearer token parsing
 catalog/              team-maintained content YAML (see Editing content)
@@ -83,16 +84,33 @@ From this folder:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
-cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
-API docs: http://127.0.0.1:8000/docs
+API docs: http://127.0.0.1:8000/docs. Without `DATABASE_URL` the data lives in memory.
 
-Run the tests:
+To use a real Postgres locally (Docker):
+
+```bash
+docker run -d --name pn-postgres -e POSTGRES_PASSWORD=devpass -e POSTGRES_DB=paperwork -p 54329:5432 postgres:16-alpine
+```
+
+```bash
+DATABASE_URL=postgres://postgres:devpass@127.0.0.1:54329/paperwork uvicorn app.main:app --reload
+```
+
+Tables are created automatically on first start. Once the schema has to change on a database that already holds data, add Alembic migrations.
+
+Run the tests (every test runs on the in-memory store and on SQLite):
 
 ```bash
 pytest
+```
+
+Also run them on Postgres:
+
+```bash
+TEST_DATABASE_URL=postgres://postgres:devpass@127.0.0.1:54329/paperwork pytest
 ```
 
 ## Deployment (Vercel)
@@ -108,6 +126,7 @@ Environment variables are set per project, so set them in both:
 
 | Variable | Needed? | Purpose |
 |---|---|---|
+| `DATABASE_URL` | Yes | Postgres connection string. Use Neon's **pooled** URL; `postgres://…` works as-is |
 | `LLM_API_KEY` | Later (real assistant) | API key for the LLM |
 | `FAST_MODEL` | Optional | Model id for the assistant (default `claude-haiku-5-5`) |
 | `CORS_ORIGINS` | Optional | Comma-separated frontend origins allowed to call the API (default `*`, any origin) |
