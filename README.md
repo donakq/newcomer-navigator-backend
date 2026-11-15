@@ -1,13 +1,13 @@
-# Newcomer Navigator
+# Paperwork Navigator
 
-Helps new F-1 students in Washington State figure out which admin tasks they need to do (SSN, bank account, phone, ...), how to do them, and track their progress.
+Helps first-time UW F-1 students apply for post-completion OPT: what to do next, the latest date for each step, and who to ask.
 
 This repo holds both parts of the app:
 
 | Folder | What | Details |
 |---|---|---|
 | [`backend/`](backend/README.md) | FastAPI API: rules engine, task catalog, chat | [backend/README.md](backend/README.md) |
-| [`frontend/`](frontend/README.md) | Web UI (currently a mock page) | [frontend/README.md](frontend/README.md) |
+| [`frontend/`](frontend/README.md) | Next.js web UI | [frontend/README.md](frontend/README.md) |
 | `docs/` | Implementation plans | |
 
 ## Environments
@@ -40,14 +40,15 @@ pip install -r requirements-dev.txt
 uvicorn app.main:app --reload
 ```
 
-Mock frontend (terminal 2):
+Frontend (terminal 2):
 
 ```bash
 cd frontend
-python3 -m http.server 5173
+npm install
+npm run dev
 ```
 
-Open http://localhost:5173. When served from localhost, the frontend calls the backend at http://127.0.0.1:8000.
+Open http://localhost:3000. The frontend calls the backend at http://127.0.0.1:8000 (set `NEXT_PUBLIC_API_BASE_URL` to change it). Sign in with any email; the mock login code is `000000`.
 
 ## Status
 

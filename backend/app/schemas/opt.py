@@ -125,6 +125,15 @@ class BannerKind(str, Enum):
     CLOSED = "CLOSED"
 
 
+# --- Health ---
+
+
+class HealthResponse(BaseModel):
+    ok: bool
+    version: str
+    tasks: int  # number of OPT task templates loaded from catalog/
+
+
 # --- Auth ---
 
 
