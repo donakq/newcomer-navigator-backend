@@ -1,6 +1,7 @@
 """Logged-in user's OPT data (PRD 8.3).
 
-Mock phase: each user's data lives in app.mock.session_store (in memory) until Postgres exists.
+Each request loads the user's state from the store, changes it, and saves it with _commit().
+A request that fails before _commit() saves nothing.
 """
 
 from datetime import date
@@ -9,11 +10,11 @@ from fastapi import APIRouter, Depends, Response
 
 from app.deps import current_session
 from app.errors import ApiError
-from app.mock import opt_assistant, session_store
+from app.mock import opt_assistant
 from app.mock.opt_demo import build_plan, documents, graduation_banner, modules, policy_version, school, source
-from app.mock.session_store import UserState
 from app.opt.content import TaskTemplate, get_content
 from app.opt.timeline import StartPreference
+from app.store import UserState, get_store
 from app.schemas.opt import (
     ChecklistResponse,
     DsoDraftRequest,
@@ -62,7 +63,7 @@ STAGE_ORDER = list(Stage)
 
 
 def current_state(token: str = Depends(current_session)) -> UserState:
-    state = session_store.state_for(token)
+    state = get_store().state_for(token)
     if state is None:
         raise ApiError(401, "unauthenticated", "Your session has expired. Log in again.")
     return state
@@ -101,9 +102,11 @@ def _apply_stage(state: UserState, stage: Stage) -> None:
             state.task_statuses[task_id] = status
 
 
-def _bump(state: UserState) -> int:
-    state.plan_version += 1
-    return state.plan_version
+def _commit(state: UserState, plan_changed: bool = True) -> None:
+    """Save the user's state; bump the plan version when anything the plan depends on changed."""
+    if plan_changed:
+        state.plan_version += 1
+    get_store().save(state)
 
 
 @router.put("/onboarding", response_model=ProfileResponse)
@@ -118,7 +121,7 @@ def onboarding(body: OnboardingRequest, state: UserState = Depends(current_state
         policy_version=policy_version(content), policy_last_reviewed=content.policy.reviewed_at,
     )
     state.task_statuses = {}
-    _bump(state)
+    _commit(state)
     return ProfileResponse(profile=state.profile)
 
 
@@ -131,14 +134,13 @@ def get_profile(state: UserState = Depends(current_state)) -> ProfileResponse:
 def patch_profile(body: ProfilePatch, state: UserState = Depends(current_state)) -> ProfilePatchResponse:
     changes = body.model_dump(exclude_none=True)
     state.profile = _profile(state).model_copy(update=changes)
-    if "program_end_date" in changes:
-        _bump(state)
+    _commit(state, plan_changed="program_end_date" in changes)
     return ProfilePatchResponse(profile=state.profile, plan_version=state.plan_version)
 
 
 @router.delete("", status_code=204, response_class=Response)
 def delete_account(token: str = Depends(current_session)) -> Response:
-    session_store.delete_user(token)
+    get_store().delete_user(token)
     return Response(status_code=204)
 
 
@@ -168,7 +170,7 @@ def opt_selection(body: OptSelectionRequest, state: UserState = Depends(current_
     selection = OptSelection(opt_intent=body.opt_intent, first_time_at_level=True, opt_type=OptType.POST_COMPLETION)
     state.profile = profile.model_copy(update={"opt_selection": selection, "stage": profile.stage or Stage.PLANNING})
     state.task_statuses["T01"] = TaskStatus.COMPLETED  # Select OPT is how T01 gets done
-    _bump(state)
+    _commit(state)
     return OptSelectionResponse(opt_type=OptType.POST_COMPLETION)
 
 
@@ -179,7 +181,7 @@ def status(body: StatusRequest, state: UserState = Depends(current_state)) -> St
     dates = StageDates(**body.model_dump(exclude={"stage"}))
     state.profile = profile.model_copy(update={"stage": body.stage, "stage_dates": dates})
     _apply_stage(state, body.stage)
-    _bump(state)
+    _commit(state)
     return StatusResponse(stage=body.stage, stage_dates=dates)
 
 
@@ -194,13 +196,13 @@ def offer(body: Offer, state: UserState = Depends(current_state)) -> Offer:
             _require(body, ["preferred_start_date"])
     state.profile = profile.model_copy(update={"offer": body})
     _plan(state)  # reject inputs the timeline engine can't use, before keeping them
-    _bump(state)
+    _commit(state)
     return body
 
 
 @router.post("/opt-plan/generate", response_model=Plan)
 def generate_plan(state: UserState = Depends(current_state)) -> Plan:
-    _bump(state)
+    _commit(state)
     return _plan(state)
 
 
@@ -240,7 +242,7 @@ def patch_task(task_id: str, body: TaskPatchRequest, state: UserState = Depends(
     state.profile = profile.model_copy(update={"stage_dates": dates, "stage": stage})
     if body.status:
         state.task_statuses[task_id] = body.status
-    _bump(state)
+    _commit(state)
     plan = _plan(state)
     return TaskPatchResponse(task=next(t for t in plan.tasks if t.id == task_id), plan_version=plan.version)
 
