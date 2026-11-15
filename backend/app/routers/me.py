@@ -94,6 +94,13 @@ def _plan(state: UserState) -> Plan:
         raise ApiError(422, "invalid_timeline_input", str(e)) from e
 
 
+def _apply_stage(state: UserState, stage: Stage) -> None:
+    """Mark the tasks a stage implies; never downgrade a task that is already COMPLETED."""
+    for task_id, status in STAGE_DONE[stage].items():
+        if state.task_statuses.get(task_id) != TaskStatus.COMPLETED:
+            state.task_statuses[task_id] = status
+
+
 def _bump(state: UserState) -> int:
     state.plan_version += 1
     return state.plan_version
@@ -171,7 +178,7 @@ def status(body: StatusRequest, state: UserState = Depends(current_state)) -> St
     _require(body, STAGE_REQUIRED.get(body.stage, []))
     dates = StageDates(**body.model_dump(exclude={"stage"}))
     state.profile = profile.model_copy(update={"stage": body.stage, "stage_dates": dates})
-    state.task_statuses.update(STAGE_DONE[body.stage])
+    _apply_stage(state, body.stage)
     _bump(state)
     return StatusResponse(stage=body.stage, stage_dates=dates)
 
@@ -228,6 +235,8 @@ def patch_task(task_id: str, body: TaskPatchRequest, state: UserState = Depends(
     for field, field_stage in DATE_STAGE.items():
         if getattr(body, field) and STAGE_ORDER.index(field_stage) > STAGE_ORDER.index(stage):
             stage = field_stage
+    if stage != (profile.stage or Stage.PLANNING):
+        _apply_stage(state, stage)  # same effect as choosing that stage on Status
     state.profile = profile.model_copy(update={"stage_dates": dates, "stage": stage})
     if body.status:
         state.task_statuses[task_id] = body.status

@@ -318,3 +318,16 @@ def test_delete_account_removes_data_and_session(client):
                                           "degree_level": "MASTER"}, headers=headers)
     assert client.delete("/api/me", headers=headers).status_code == 204
     assert client.get("/api/me/profile", headers=headers).status_code == 401
+
+
+def test_recording_a_date_on_a_task_applies_that_stage(client):
+    headers, _ = login(client, "stage@uw.edu")
+    client.put("/api/me/onboarding", json={"school_id": "uw", "program_end_date": "2027-06-11",
+                                          "degree_level": "MASTER"}, headers=headers)
+    client.put("/api/me/opt-selection", json={"opt_intent": "AFTER_GRADUATION", "first_time_at_level": True},
+               headers=headers)
+    client.patch("/api/me/tasks/T02", json={"status": "WAITING_EXTERNAL", "i20_request_date": "2027-03-01"},
+                 headers=headers)
+    client.patch("/api/me/tasks/T03", json={"status": "COMPLETED", "dso_rec_date": "2027-03-20"}, headers=headers)
+    tasks = {t["id"]: t["status"] for t in client.get("/api/me/opt-plan", headers=headers).json()["tasks"]}
+    assert tasks["T02"] == "COMPLETED"  # the OPT I-20 arrived, so the request is done
