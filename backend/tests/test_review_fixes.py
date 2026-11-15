@@ -58,6 +58,8 @@ def test_all_routes_have_response_schemas():
     spec = app.openapi()
     for path, methods in spec["paths"].items():
         for method, op in methods.items():
+            if "204" in op["responses"]:
+                continue  # no body by design (logout, delete account)
             schema = op["responses"]["200"]["content"]["application/json"]["schema"]
             assert schema, f"{method.upper()} {path} has no response schema"
 

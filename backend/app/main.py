@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import config
 from app.catalog_loader import get_catalog
 from app.errors import register_error_handlers
-from app.routers import chat, checklist, profile, tasks
+from app.routers import assistant, auth, chat, checklist, me, profile, schools, tasks
 from app.schemas.api import HealthResponse
 
 # Load and validate the task catalog at import time so broken YAML fails the deploy, not a request.
@@ -27,7 +27,8 @@ def health() -> HealthResponse:
     return HealthResponse(ok=True, version=config.APP_VERSION, tasks=CATALOG_TASK_COUNT)
 
 
-for module in (profile, checklist, tasks, chat):
+# Legacy newcomer endpoints (used by the mock frontend) + OPT MVP v1 contract (mock data).
+for module in (profile, checklist, tasks, chat, auth, schools, me, assistant):
     app.include_router(module.router)
 
 

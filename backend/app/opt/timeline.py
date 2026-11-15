@@ -95,7 +95,7 @@ def _days(n: int) -> timedelta:
     return timedelta(days=n)
 
 
-def _window_status(p: date, today: date) -> WindowStatus:
+def window_status(p: date, today: date) -> WindowStatus:
     if today < p - _days(90):
         return WindowStatus.NOT_OPEN
     if today <= p:
@@ -114,7 +114,7 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     p, r, today = inp.program_end, inp.dso_rec, inp.today
     filed = inp.uscis_receipt is not None
     branch = "OFFER" if inp.has_offer else "NO_OFFER"
-    window = _window_status(p, today)
+    window = window_status(p, today)
 
     def result(nodes: list[Node], risks: list[Risk], too_early: bool = False) -> TimelineResult:
         return TimelineResult(branch=branch, window=window, nodes=_sorted(nodes), risks=risks, too_early=too_early)
