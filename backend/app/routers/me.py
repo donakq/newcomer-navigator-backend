@@ -1,4 +1,7 @@
-"""Logged-in user's OPT data (PRD 8.3). Mock: nothing is saved; writes are validated and echoed back."""
+"""Logged-in user's OPT data (PRD 8.3).
+
+Mock phase: each user's data lives in app.mock.session_store (in memory) until Postgres exists.
+"""
 
 from datetime import date
 
@@ -6,8 +9,9 @@ from fastapi import APIRouter, Depends, Response
 
 from app.deps import current_session
 from app.errors import ApiError
-from app.mock import opt_assistant
-from app.mock.opt_demo import build_plan, demo_profile, documents, graduation_banner, modules, school, source
+from app.mock import opt_assistant, session_store
+from app.mock.opt_demo import build_plan, documents, graduation_banner, modules, policy_version, school, source
+from app.mock.session_store import UserState
 from app.opt.content import TaskTemplate, get_content
 from app.opt.timeline import StartPreference
 from app.schemas.opt import (
@@ -17,11 +21,13 @@ from app.schemas.opt import (
     Offer,
     OnboardingRequest,
     OptIntent,
+    OptSelection,
     OptSelectionRequest,
     OptSelectionResponse,
     OptSummary,
     OptType,
     Plan,
+    Profile,
     ProfilePatch,
     ProfilePatchResponse,
     ProfileResponse,
@@ -37,10 +43,35 @@ from app.schemas.opt import (
     TemplateContent,
 )
 
-router = APIRouter(prefix="/api/me", tags=["me"], dependencies=[Depends(current_session)])
+router = APIRouter(prefix="/api/me", tags=["me"])
 
-# PRD F05 / F07: dates that must come with a stage or a completed task.
+# PRD F05: dates that must come with a stage.
 STAGE_REQUIRED = {Stage.I20_RECEIVED: ["dso_rec_date"], Stage.I765_FILED: ["uscis_receipt_date", "requested_start_date"]}
+# What each stage means for the tasks (PRD 5.1): the student has already done these.
+STAGE_DONE = {
+    Stage.PLANNING: {},
+    Stage.I20_REQUESTED: {"T02": TaskStatus.WAITING_EXTERNAL},
+    Stage.I20_RECEIVED: {"T02": TaskStatus.COMPLETED, "T03": TaskStatus.COMPLETED},
+    Stage.I765_FILED: {t: TaskStatus.COMPLETED for t in ("T02", "T03", "T04", "T05")},
+    Stage.APPROVED: {t: TaskStatus.COMPLETED for t in ("T02", "T03", "T04", "T05", "T06")},
+}
+# Recording one of these dates on a task moves the student to that stage (PRD F07).
+DATE_STAGE = {"i20_request_date": Stage.I20_REQUESTED, "dso_rec_date": Stage.I20_RECEIVED,
+              "uscis_receipt_date": Stage.I765_FILED}
+STAGE_ORDER = list(Stage)
+
+
+def current_state(token: str = Depends(current_session)) -> UserState:
+    state = session_store.state_for(token)
+    if state is None:
+        raise ApiError(401, "unauthenticated", "Your session has expired. Log in again.")
+    return state
+
+
+def _profile(state: UserState) -> Profile:
+    if state.profile is None:
+        raise ApiError(404, "onboarding_required", "Finish onboarding first")
+    return state.profile
 
 
 def _require(body, fields: list[str]) -> None:
@@ -56,39 +87,58 @@ def _task_or_404(task_id: str) -> TaskTemplate:
     return tpl
 
 
+def _plan(state: UserState) -> Plan:
+    try:
+        return build_plan(_profile(state), state.task_statuses, version=state.plan_version)
+    except ValueError as e:  # timeline engine rejected the inputs
+        raise ApiError(422, "invalid_timeline_input", str(e)) from e
+
+
+def _bump(state: UserState) -> int:
+    state.plan_version += 1
+    return state.plan_version
+
+
 @router.put("/onboarding", response_model=ProfileResponse)
-def onboarding(body: OnboardingRequest) -> ProfileResponse:
+def onboarding(body: OnboardingRequest, state: UserState = Depends(current_state)) -> ProfileResponse:
     chosen = school(body.school_id)
     if chosen is None or chosen.support_status != SupportStatus.SUPPORTED:
         raise ApiError(409, "unsupported_school", "This school is not supported yet")
-    profile = demo_profile().model_copy(update={
-        "school": chosen, "program_end_date": body.program_end_date, "degree_level": body.degree_level,
-        "opt_selection": None, "stage": None, "stage_dates": StageDates(), "offer": None,
-    })
-    return ProfileResponse(profile=profile)
+    content = get_content()
+    state.profile = Profile(
+        email=state.email, school=chosen, degree_level=body.degree_level, program_end_date=body.program_end_date,
+        timezone=state.timezone, opt_selection=None, stage=None, stage_dates=StageDates(), offer=None,
+        policy_version=policy_version(content), policy_last_reviewed=content.policy.reviewed_at,
+    )
+    state.task_statuses = {}
+    _bump(state)
+    return ProfileResponse(profile=state.profile)
 
 
 @router.get("/profile", response_model=ProfileResponse)
-def get_profile() -> ProfileResponse:
-    return ProfileResponse(profile=demo_profile())
+def get_profile(state: UserState = Depends(current_state)) -> ProfileResponse:
+    return ProfileResponse(profile=_profile(state))
 
 
 @router.patch("/profile", response_model=ProfilePatchResponse)
-def patch_profile(body: ProfilePatch) -> ProfilePatchResponse:
+def patch_profile(body: ProfilePatch, state: UserState = Depends(current_state)) -> ProfilePatchResponse:
     changes = body.model_dump(exclude_none=True)
-    profile = demo_profile().model_copy(update=changes)
-    return ProfilePatchResponse(profile=profile, plan_version=2 if "program_end_date" in changes else 1)
+    state.profile = _profile(state).model_copy(update=changes)
+    if "program_end_date" in changes:
+        _bump(state)
+    return ProfilePatchResponse(profile=state.profile, plan_version=state.plan_version)
 
 
 @router.delete("", status_code=204, response_class=Response)
-def delete_account() -> Response:
+def delete_account(token: str = Depends(current_session)) -> Response:
+    session_store.delete_user(token)
     return Response(status_code=204)
 
 
 @router.get("/checklist", response_model=ChecklistResponse)
-def checklist() -> ChecklistResponse:
-    profile = demo_profile()
-    plan = build_plan(profile)
+def checklist(state: UserState = Depends(current_state)) -> ChecklistResponse:
+    profile = _profile(state)
+    plan = _plan(state)
     done = [t for t in plan.tasks if t.status == TaskStatus.COMPLETED]
     upcoming = next((t for t in plan.tasks if t.status not in (TaskStatus.COMPLETED, TaskStatus.BLOCKED)), None)
     return ChecklistResponse(
@@ -104,43 +154,58 @@ def checklist() -> ChecklistResponse:
 
 
 @router.put("/opt-selection", response_model=OptSelectionResponse)
-def opt_selection(body: OptSelectionRequest) -> OptSelectionResponse:
+def opt_selection(body: OptSelectionRequest, state: UserState = Depends(current_state)) -> OptSelectionResponse:
+    profile = _profile(state)
     if body.opt_intent != OptIntent.AFTER_GRADUATION or not body.first_time_at_level:
         raise ApiError(422, "out_of_scope", "v1 only supports a first-time post-completion OPT application")
+    selection = OptSelection(opt_intent=body.opt_intent, first_time_at_level=True, opt_type=OptType.POST_COMPLETION)
+    state.profile = profile.model_copy(update={"opt_selection": selection, "stage": profile.stage or Stage.PLANNING})
+    state.task_statuses["T01"] = TaskStatus.COMPLETED  # Select OPT is how T01 gets done
+    _bump(state)
     return OptSelectionResponse(opt_type=OptType.POST_COMPLETION)
 
 
 @router.put("/status", response_model=StatusResponse)
-def status(body: StatusRequest) -> StatusResponse:
+def status(body: StatusRequest, state: UserState = Depends(current_state)) -> StatusResponse:
+    profile = _profile(state)
     _require(body, STAGE_REQUIRED.get(body.stage, []))
-    return StatusResponse(stage=body.stage, stage_dates=StageDates(**body.model_dump(exclude={"stage"})))
+    dates = StageDates(**body.model_dump(exclude={"stage"}))
+    state.profile = profile.model_copy(update={"stage": body.stage, "stage_dates": dates})
+    state.task_statuses.update(STAGE_DONE[body.stage])
+    _bump(state)
+    return StatusResponse(stage=body.stage, stage_dates=dates)
 
 
 @router.put("/offer", response_model=Offer)
-def offer(body: Offer) -> Offer:
+def offer(body: Offer, state: UserState = Depends(current_state)) -> Offer:
+    profile = _profile(state)
     if body.has_offer:
         _require(body, ["offer_start_date"])
     else:
         _require(body, ["start_preference"])
         if body.start_preference == StartPreference.SPECIFIC_DATE:
             _require(body, ["preferred_start_date"])
+    state.profile = profile.model_copy(update={"offer": body})
+    _plan(state)  # reject inputs the timeline engine can't use, before keeping them
+    _bump(state)
     return body
 
 
 @router.post("/opt-plan/generate", response_model=Plan)
-def generate_plan() -> Plan:
-    return build_plan(demo_profile())
+def generate_plan(state: UserState = Depends(current_state)) -> Plan:
+    _bump(state)
+    return _plan(state)
 
 
 @router.get("/opt-plan", response_model=Plan)
-def get_plan() -> Plan:
-    return build_plan(demo_profile())
+def get_plan(state: UserState = Depends(current_state)) -> Plan:
+    return _plan(state)
 
 
 @router.get("/tasks/{task_id}", response_model=TaskDetailResponse)
-def task_detail(task_id: str) -> TaskDetailResponse:
+def task_detail(task_id: str, state: UserState = Depends(current_state)) -> TaskDetailResponse:
     tpl = _task_or_404(task_id)
-    task = next(t for t in build_plan(demo_profile()).tasks if t.id == task_id)
+    task = next(t for t in _plan(state).tasks if t.id == task_id)
     return TaskDetailResponse(
         task=task,
         template_content=TemplateContent(steps=tpl.steps, documents=documents(task_id)),
@@ -150,17 +215,27 @@ def task_detail(task_id: str) -> TaskDetailResponse:
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskPatchResponse)
-def patch_task(task_id: str, body: TaskPatchRequest) -> TaskPatchResponse:
+def patch_task(task_id: str, body: TaskPatchRequest, state: UserState = Depends(current_state)) -> TaskPatchResponse:
     tpl = _task_or_404(task_id)
-    if body.status == TaskStatus.COMPLETED:
-        _require(body, tpl.complete_requires)
-    profile = demo_profile()
+    profile = _profile(state)
+    current = next(t for t in _plan(state).tasks if t.id == task_id)
+    if current.status == TaskStatus.BLOCKED and body.status:
+        raise ApiError(409, "task_blocked", f"Finish {', '.join(current.blocked_by)} first")
     dates = profile.stage_dates.model_copy(update=body.model_dump(exclude={"status"}, exclude_none=True))
-    statuses = {task_id: body.status} if body.status else {}
-    plan = build_plan(profile.model_copy(update={"stage_dates": dates}), statuses, version=2)
+    if body.status == TaskStatus.COMPLETED:
+        _require(dates, tpl.complete_requires)  # already-saved dates count
+    stage = profile.stage or Stage.PLANNING
+    for field, field_stage in DATE_STAGE.items():
+        if getattr(body, field) and STAGE_ORDER.index(field_stage) > STAGE_ORDER.index(stage):
+            stage = field_stage
+    state.profile = profile.model_copy(update={"stage_dates": dates, "stage": stage})
+    if body.status:
+        state.task_statuses[task_id] = body.status
+    _bump(state)
+    plan = _plan(state)
     return TaskPatchResponse(task=next(t for t in plan.tasks if t.id == task_id), plan_version=plan.version)
 
 
 @router.post("/dso-drafts", response_model=DsoDraftResponse)
-def dso_draft(body: DsoDraftRequest) -> DsoDraftResponse:
-    return opt_assistant.draft(body)
+def dso_draft(body: DsoDraftRequest, state: UserState = Depends(current_state)) -> DsoDraftResponse:
+    return opt_assistant.draft(body, _profile(state))

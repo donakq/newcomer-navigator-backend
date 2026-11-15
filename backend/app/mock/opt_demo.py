@@ -137,7 +137,9 @@ def graduation_banner(program_end: date, today: date) -> GraduationBanner:
 
 
 def _timeline(profile: Profile, today: date) -> TimelineResult:
-    offer, dates = profile.offer, profile.stage_dates
+    # No offer answer yet: plan forward from the filing window (PRD 6.3) until the student answers.
+    offer = profile.offer or Offer(has_offer=False)
+    dates = profile.stage_dates
     return compute_timeline(
         TimelineInput(
             program_end=profile.program_end_date,

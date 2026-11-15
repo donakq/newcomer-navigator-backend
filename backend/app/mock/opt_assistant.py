@@ -6,7 +6,7 @@ The real version (intent classifier, retrieval, refusal rules) replaces this in 
 import re
 import uuid
 
-from app.mock.opt_demo import demo_profile, source
+from app.mock.opt_demo import source
 from app.opt.content import get_content
 from app.schemas.opt import (
     AssistantAction,
@@ -16,6 +16,7 @@ from app.schemas.opt import (
     DsoDraftRequest,
     DsoDraftResponse,
     Intent,
+    Profile,
     Scope,
 )
 
@@ -72,9 +73,8 @@ def reply(req: AssistantRequest) -> AssistantResponse:
     )
 
 
-def draft(req: DsoDraftRequest) -> DsoDraftResponse:
+def draft(req: DsoDraftRequest, profile: Profile) -> DsoDraftResponse:
     """Fixed structure (PRD 7.7): greeting, who I am, my situation, question, what I tried, thanks."""
-    profile = demo_profile()
     content = get_content()
     office = content.policy.office
     task = content.tasks.get(req.current_task_id or "")
@@ -84,7 +84,7 @@ def draft(req: DsoDraftRequest) -> DsoDraftResponse:
         "",
         "My name is [YOUR FULL NAME] (Student ID: [YOUR STUDENT ID]). I am applying for post-completion OPT.",
         f"My Program End Date is {profile.program_end_date:%B %d, %Y}, and my current stage is "
-        f"{profile.stage.value.replace('_', ' ').lower()}.{step}",
+        f"{(profile.stage or 'PLANNING').replace('_', ' ').lower()}.{step}",
         "",
         f"My question: {req.user_question}",
         "",
