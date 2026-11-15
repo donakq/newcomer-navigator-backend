@@ -18,7 +18,7 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
         </nav>
       </header>
       <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-950" role="note">
-        DEMO MODE · Sample workflow and locally stored test data. Dates and school guidance have not been policy-reviewed. Do not use for real immigration filing decisions.
+        DEMO MODE · Mock backend: data resets when the server restarts. Dates and school guidance have not been policy-reviewed. Do not use for real immigration filing decisions.
       </div>
       {children}
       <OptAssistantWidget />

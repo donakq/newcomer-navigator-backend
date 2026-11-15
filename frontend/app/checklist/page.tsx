@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
 import { Panel, PrimaryLink, Shell } from "@/components/Shell";
-import { addDays, formatDate, taskState, TASKS, useDemoProfile } from "@/lib/demo";
+import { addDays, formatDate, taskState, useDemoProfile } from "@/lib/demo";
 import { useState } from "react";
 export default function ChecklistPage() {
-  const {profile,ready}=useDemoProfile(); const [filter,setFilter]=useState<"All"|"To do"|"Done">("All");
+  const {profile,ready,tasks:TASKS}=useDemoProfile(); const [filter,setFilter]=useState<"All"|"To do"|"Done">("All");
   const completed = TASKS.filter(t => profile.taskStatuses[t.id] === "COMPLETED").length;
-  const progress = Math.round(completed/TASKS.length*100);
+  const progress = TASKS.length ? Math.round(completed/TASKS.length*100) : 0;
   const hasPlan = profile.optIntent === "AFTER_GRADUATION";
   const visibleTasks = TASKS.filter(t=>filter==="All"||(filter==="Done"?profile.taskStatuses[t.id]==="COMPLETED":profile.taskStatuses[t.id]!=="COMPLETED"));
   return <Shell><div><h1 className="text-4xl font-bold tracking-tight">Your journey, step by step.</h1><p className="mt-3 text-gray-600">Your UW OPT preparation hub. Start a plan, track actions, and review key dates.</p></div>
@@ -22,6 +22,6 @@ export default function ChecklistPage() {
       </Panel>
       <div className="mt-4 grid gap-3">{[{name:"Maintaining status",url:"https://iss.washington.edu/"},{name:"Health insurance",url:"https://iss.washington.edu/"},{name:"Travel",url:"https://iss.washington.edu/"},{name:"Taxes",url:"https://iss.washington.edu/"}].map(m=><div className="flex items-center justify-between gap-4 rounded-xl border border-[#e9e9e6] bg-[#f4f4f1] px-5 py-4" key={m.name}><div><strong>{m.name}</strong><p className="text-xs text-gray-500">Coming soon · Not available in OPT MVP</p></div><a className="shrink-0 text-xs text-[#336a48] underline" href={m.url} target="_blank" rel="noreferrer">UW ISS ↗</a></div>)}</div>
     </div>
-    {!ready && <p className="mt-4 text-sm text-gray-500">Loading demo profile…</p>}
+    {!ready && <p className="mt-4 text-sm text-gray-500">Loading your plan…</p>}
   </Shell>;
 }

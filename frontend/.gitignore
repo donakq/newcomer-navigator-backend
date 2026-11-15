@@ -9,3 +9,7 @@ out/
 
 *.log
 .DS_Store
+
+# The root .gitignore (Python template) ignores lib/; the frontend needs it.
+!lib/
+*.tsbuildinfo

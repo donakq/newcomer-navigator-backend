@@ -28,9 +28,9 @@ function dayCount(date: string): string {
   return remaining < 0 ? `${-remaining} days ago` : remaining === 0 ? "Today" : `${remaining} days remaining`;
 }
 export default function TimelinePage() {
-  const { profile, save, ready } = useDemoProfile();
+  const { profile, plan, save, ready } = useDemoProfile();
   const [edit, setEdit] = useState(true);
-  const timeline = buildDemoTimeline(profile);
+  const timeline = buildDemoTimeline(profile, plan);
   function change<K extends keyof Profile>(key: K, value: Profile[K]) { save({ [key]: value }); }
   const selectedBranch = profile.hasOffer === true ? "Backward plan · offer" : profile.hasOffer === false ? "Forward plan · no offer" : "Choose planning branch";
   return <Shell wide>
@@ -71,8 +71,8 @@ export default function TimelinePage() {
         {(profile.stage === "I20_RECEIVED" || !!profile.dsoRecDate) && <Field label="DSO recommendation date (SEVIS)" hint="Confirm the SEVIS date with UW ISS. The I-20 issue date may differ."><input type="date" className={inputClass} value={profile.dsoRecDate} onChange={e => change("dsoRecDate", e.target.value)} /></Field>}
       </div>
       {profile.hasOffer === false && <p className="mt-4 rounded-lg bg-[#eef4ef] p-4 text-sm leading-relaxed text-[#31533f]">Choosing an earlier requested OPT start date may permit an earlier start once authorized, but can also begin the unemployment-day period sooner. A later date may reduce that exposure but delays possible work authorization. Confirm your choice with UW ISS.</p>}
-      <button type="button" onClick={() => setEdit(false)} className="mt-6 rounded-xl bg-[#336a48] px-6 py-3 text-sm font-semibold text-white">Calculate My Timeline (demo) →</button>
-      <p className="mt-3 text-xs text-gray-500">Inputs are saved in this browser for testing. Premium processing is recorded but no verified premium timeline is calculated.</p>
+      <button type="button" onClick={() => setEdit(false)} className="mt-6 rounded-xl bg-[#336a48] px-6 py-3 text-sm font-semibold text-white">Calculate My Timeline →</button>
+      <p className="mt-3 text-xs text-gray-500">Your answers are saved as soon as they are complete, and the timeline is recalculated by the backend.</p>
     </Panel>}
     {ready && timeline.warnings.length > 0 && <div className="mt-6 space-y-3" aria-label="Timeline notices">
       {timeline.warnings.map((warning, i) => <div key={`${warning.code}-${i}`} role="status" className={`rounded-xl border p-4 ${riskStyles[warning.code]}`}>

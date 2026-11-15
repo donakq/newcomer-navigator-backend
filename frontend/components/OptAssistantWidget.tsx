@@ -2,10 +2,19 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { api, type ApiAssistantReply, type ApiDraft } from "@/lib/api";
 import { useDemoProfile } from "@/lib/demo";
 
 type View = "default" | "answer" | "contact";
-type Message = { role: "user" | "assistant"; text: string };
+type Message = { role: "user" | "assistant"; text: string; sources?: { title: string; url: string | null }[] };
+const QUESTION_TYPES: Record<string, string> = { "Confirm dates": "CONFIRM_DATES", "I-20 status": "I20_STATUS", Documents: "DOCUMENTS", "RFE or denial": "RFE_OR_DENIAL", Other: "OTHER" };
+
+function pageOf(path: string): { page: string; taskId: string | null } {
+  const task = path.match(/\/opt\/tasks\/(T\d+)/);
+  if (task) return { page: "task", taskId: task[1] };
+  const page = path.startsWith("/opt/timeline") ? "timeline" : path.startsWith("/opt/select") ? "select_opt" : path.startsWith("/opt/status") ? "status" : path.startsWith("/home") ? "home" : "checklist";
+  return { page, taskId: null };
+}
 const DISCLAIMER = "This product does not provide legal advice. Please verify requirements and filing dates with your international student office and USCIS.";
 
 function suggestedQuestions(path: string, stage: string): string[] {
@@ -39,16 +48,40 @@ export default function OptAssistantWidget() {
   const [contactQuestion, setContactQuestion] = useState("");
   const [draft, setDraft] = useState<{ subject: string; body: string } | null>(null);
   const [copyNote, setCopyNote] = useState("");
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const officePage = "https://iss.washington.edu/";
   const chips = suggestedQuestions(path, profile.stage);
 
-  function submitQuestion(value: string) {
+  async function submitQuestion(value: string) {
     const entered = value.trim();
-    if (!entered) return;
-    setMessages(old => [...old, { role: "user", text: entered }, { role: "assistant", text: "AI responses are not connected in this prototype. This is the intended response layout; for accurate, case-specific guidance, consult UW ISS and the cited official sources once the service is connected." }]);
+    if (!entered || busy) return;
+    setMessages(old => [...old, { role: "user", text: entered }]);
     setQuestion("");
     setFeedback(null);
     setView("answer");
+    setBusy(true);
+    const { page, taskId } = pageOf(path);
+    try {
+      const reply = await api<ApiAssistantReply>("POST", "/api/assistant/messages", { message: entered, current_page: page, current_task_id: taskId, conversation_id: conversationId });
+      setConversationId(reply.conversation_id);
+      setMessages(old => [...old, { role: "assistant", text: reply.answer, sources: reply.sources }]);
+    } catch (e) {
+      setMessages(old => [...old, { role: "assistant", text: `The assistant is unavailable right now (${e instanceof Error ? e.message : "error"}). Please check with UW ISS.` }]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareDraft() {
+    setCopyNote("");
+    const { taskId } = pageOf(path);
+    try {
+      const d = await api<ApiDraft>("POST", "/api/me/dso-drafts", { question_type: QUESTION_TYPES[topic] ?? "OTHER", user_question: contactQuestion.trim() || "[DESCRIBE YOUR QUESTION]", current_task_id: taskId, conversation_id: conversationId });
+      setDraft({ subject: d.subject, body: d.body });
+    } catch {
+      setDraft(fallbackDraft(topic, contactQuestion, profile.stage));
+    }
   }
 
   function showContact() {
@@ -89,9 +122,9 @@ export default function OptAssistantWidget() {
           <label className="block space-y-1 font-medium">Describe your question
             <textarea rows={3} value={contactQuestion} onChange={e => { setContactQuestion(e.target.value); setDraft(null); }} className="mt-1 w-full rounded-xl border border-[#d9e0d8] p-3 font-normal" placeholder="What would you like to ask your school's international student office?" />
           </label>
-          <button type="button" onClick={() => { setDraft(fallbackDraft(topic, contactQuestion, profile.stage)); setCopyNote(""); }} className="w-full rounded-xl bg-[#336a48] px-4 py-3 font-semibold text-white">Prepare email template (demo)</button>
+          <button type="button" onClick={prepareDraft} className="w-full rounded-xl bg-[#336a48] px-4 py-3 font-semibold text-white">Draft my email</button>
           {draft && <div className="space-y-2 rounded-xl border border-[#dbe4d9] p-3">
-            <p className="text-xs text-gray-600">Editable template — not AI-generated, not sent</p>
+            <p className="text-xs text-gray-600">Editable draft — fill in the [PLACEHOLDERS]. The app never sends it.</p>
             <label className="block text-xs font-semibold">Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-sm font-normal" /></label>
             <label className="block text-xs font-semibold">Body<textarea rows={9} value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-sm font-normal" /></label>
             <button type="button" onClick={copyDraft} className="rounded-lg border border-[#336a48] px-3 py-2 font-semibold text-[#336a48]">Copy draft</button>
@@ -102,14 +135,14 @@ export default function OptAssistantWidget() {
             <div className="rounded-xl bg-[#f3f6f1] p-4"><p className="font-semibold">Hi! How can I help with your OPT journey?</p><p className="mt-1 text-gray-600">Ask about OPT steps, dates, or which school office to contact.</p></div>
             <p className="text-xs text-gray-500">Current stage: {profile.stage.replaceAll("_", " ")}</p>
           </> : <div aria-live="polite" className="space-y-3">
-            {messages.map((m, i) => <div key={i} className={`rounded-xl p-3 leading-relaxed ${m.role === "user" ? "ml-7 bg-[#eaf2e9]" : "mr-5 border border-[#e4e9e3] bg-[#fafbf9]"}`}><p className="mb-1 text-xs font-semibold text-gray-600">{m.role === "user" ? "You" : "OPT Assistant · Demo"}</p><p>{m.text}</p>{m.role === "assistant" && i === messages.length - 1 && <div className="mt-3 flex gap-3 text-xs"><button type="button" onClick={() => setFeedback("up")} aria-label="Helpful response" aria-pressed={feedback === "up"}>👍</button><button type="button" onClick={() => setFeedback("down")} aria-label="Not helpful response" aria-pressed={feedback === "down"}>👎</button><a className="text-[#336a48] underline" href={officePage} target="_blank" rel="noreferrer">UW ISS official website ↗</a></div>}</div>)}
+            {messages.map((m, i) => <div key={i} className={`rounded-xl p-3 leading-relaxed ${m.role === "user" ? "ml-7 bg-[#eaf2e9]" : "mr-5 border border-[#e4e9e3] bg-[#fafbf9]"}`}><p className="mb-1 text-xs font-semibold text-gray-600">{m.role === "user" ? "You" : "OPT Assistant · Demo"}</p><p className="whitespace-pre-line">{m.text}</p>{m.sources && m.sources.length > 0 && <p className="mt-2 text-xs text-gray-500">Sources: {m.sources.map(src => src.url ? <a key={src.title} href={src.url} target="_blank" rel="noreferrer" className="underline">{src.title}</a> : <span key={src.title}>{src.title} (link pending review)</span>)}</p>}{m.role === "assistant" && i === messages.length - 1 && <div className="mt-3 flex gap-3 text-xs"><button type="button" onClick={() => setFeedback("up")} aria-label="Helpful response" aria-pressed={feedback === "up"}>👍</button><button type="button" onClick={() => setFeedback("down")} aria-label="Not helpful response" aria-pressed={feedback === "down"}>👎</button><a className="text-[#336a48] underline" href={officePage} target="_blank" rel="noreferrer">UW ISS official website ↗</a></div>}</div>)}
           </div>}
           <div><p className="mb-2 text-xs font-semibold text-gray-600">Suggested questions</p><div className="flex flex-wrap gap-2">{chips.map(q => <button type="button" key={q} onClick={() => submitQuestion(q)} className="rounded-full border border-[#dce4da] px-3 py-2 text-xs text-[#2c5d40] hover:bg-[#f2f6f0]">{q}</button>)}</div></div>
-          <form onSubmit={e => { e.preventDefault(); submitQuestion(question); }} className="space-y-2"><label htmlFor="opt-assistant-input" className="block text-xs font-semibold">Ask a question about OPT</label><textarea id="opt-assistant-input" rows={2} value={question} onChange={e => setQuestion(e.target.value)} className="w-full rounded-xl border border-[#d9e0d8] p-3" placeholder="Type your question..."/><button type="submit" disabled={!question.trim()} className="rounded-xl bg-[#336a48] px-4 py-2 font-semibold text-white disabled:opacity-50">Send (demo)</button></form>
+          <form onSubmit={e => { e.preventDefault(); submitQuestion(question); }} className="space-y-2"><label htmlFor="opt-assistant-input" className="block text-xs font-semibold">Ask a question about OPT</label><textarea id="opt-assistant-input" rows={2} value={question} onChange={e => setQuestion(e.target.value)} className="w-full rounded-xl border border-[#d9e0d8] p-3" placeholder="Type your question..."/><button type="submit" disabled={!question.trim() || busy} className="rounded-xl bg-[#336a48] px-4 py-2 font-semibold text-white disabled:opacity-50">{busy ? "Sending…" : "Send"}</button></form>
           <button type="button" onClick={showContact} className="w-full rounded-xl border border-[#336a48] p-3 font-semibold text-[#336a48]">Contact My International Student Office</button>
         </>}
       </div>
-      <footer className="shrink-0 border-t border-[#e4e9e3] bg-[#fafbf9] px-4 py-3"><p className="text-[11px] leading-relaxed text-gray-600">{DISCLAIMER}</p><p className="mt-1 text-[11px] text-gray-500">Prototype: AI replies and verified contact data are not connected. Do not enter passport, SEVIS, I-94 or student ID numbers.</p></footer>
+      <footer className="shrink-0 border-t border-[#e4e9e3] bg-[#fafbf9] px-4 py-3"><p className="text-[11px] leading-relaxed text-gray-600">{DISCLAIMER}</p><p className="mt-1 text-[11px] text-gray-500">Mock assistant: answers are placeholders and contact data is not verified. Do not enter passport, SEVIS, I-94 or student ID numbers.</p></footer>
     </section>}
     <button id="opt-assistant-toggle" type="button" onClick={() => setOpen(x => !x)} aria-expanded={open} aria-label="Toggle OPT assistant" className="ml-auto block rounded-full bg-[#336a48] px-5 py-3 text-sm font-semibold text-white shadow-xl">{open ? "Close" : "✦ Ask AI"}</button>
   </div>;
