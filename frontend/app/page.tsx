@@ -13,7 +13,7 @@ export default function Landing() {
         <section className="mx-auto mt-10 max-w-[880px] rounded-[25px] border border-[#e9e8e4] bg-[#fffefc] px-6 py-7 shadow-[0_12px_34px_rgba(50,55,50,.055)] sm:px-9 sm:py-9">
           <h2 className="text-2xl font-bold">Let's plan your OPT journey</h2><p className="mt-2 text-[#65706e]">Designed for first-time UW F-1 students applying for post-completion OPT.</p>
           <Link href="/login" className="mt-6 block rounded-xl bg-[#336a48] px-6 py-4 text-center font-semibold text-white hover:bg-[#28583b]">Get Started →</Link>
-          <p className="mt-3 text-xs text-gray-500">Demo only · No real email sign-in or backend data yet</p>
+          <p className="mt-3 text-xs text-gray-500">Demo only · Test sign-in, no real email code yet</p>
         </section>
         <div className="mt-16 grid gap-8 text-center md:grid-cols-3">{[{icon:"▤",title:"Personalized Plan",text:"See the right steps for your OPT stage."},{icon:"◷",title:"Important Dates",text:"Explore filing windows and planning milestones."},{icon:"✦",title:"Know Who to Ask",text:"Find official school and government sources."}].map(x=><div key={x.title} className="px-4"><div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#eef3e9] text-2xl text-[#336a48]">{x.icon}</div><h3 className="font-bold">{x.title}</h3><p className="mt-2 text-sm text-[#606a68]">{x.text}</p></div>)}</div>
       </section>
