@@ -1,0 +1,11 @@
+# C1 Schools (Data Spec 2.1). Only SUPPORTED + a REVIEWED_ACTIVE Policy Pack enters the personalized flow.
+- id: uw
+  school_name: University of Washington
+  support_status: SUPPORTED
+# MOCK: two unsupported entries so Onboarding can show the "not supported yet" path.
+- id: wsu
+  school_name: Washington State University
+  support_status: UNSUPPORTED
+- id: seattleu
+  school_name: Seattle University
+  support_status: UNSUPPORTED

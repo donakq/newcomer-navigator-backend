@@ -293,10 +293,11 @@ class PlanTask(BaseModel):
     id: str  # T01 .. T06
     title: str
     status: TaskStatus
-    due_at: date | None
+    due_at: date | None  # date shown on the Checklist
     due_type: DueType
     date_state: DateState
-    label: TaskLabel | None
+    deadline_at: date | None  # hard deadline, when different from due_at (T05: N4)
+    label: TaskLabel | None  # URGENT / OVERDUE, computed from the hard deadline
     blocked_by: list[str]
     node_ids: list[str]  # Timeline nodes this task owns
 
@@ -321,14 +322,16 @@ class Plan(BaseModel):
 
 
 class Source(BaseModel):
+    id: str
     title: str
     url: str | None  # None until the policy reviewer fills it in
+    publisher: str  # UW_ISS | USCIS | DHS | CBP
     last_reviewed: date | None
 
 
 class Document(BaseModel):
     name: str
-    where_to_get: str
+    where_to_get: str | None
 
 
 class TemplateContent(BaseModel):

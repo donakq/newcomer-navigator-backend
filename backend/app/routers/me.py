@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, Response
 from app.deps import current_session
 from app.errors import ApiError
 from app.mock import opt_assistant
-from app.mock.opt_demo import FIELD_HINTS, MODULES, SCHOOLS, SOURCES, TASKS, build_plan, demo_profile, graduation_banner
+from app.mock.opt_demo import build_plan, demo_profile, documents, graduation_banner, modules, school, source
+from app.opt.content import TaskTemplate, get_content
 from app.opt.timeline import StartPreference
 from app.schemas.opt import (
     ChecklistResponse,
@@ -40,7 +41,6 @@ router = APIRouter(prefix="/api/me", tags=["me"], dependencies=[Depends(current_
 
 # PRD F05 / F07: dates that must come with a stage or a completed task.
 STAGE_REQUIRED = {Stage.I20_RECEIVED: ["dso_rec_date"], Stage.I765_FILED: ["uscis_receipt_date", "requested_start_date"]}
-COMPLETE_REQUIRED = {"T03": ["dso_rec_date"], "T05": ["uscis_receipt_date"]}
 
 
 def _require(body, fields: list[str]) -> None:
@@ -49,19 +49,20 @@ def _require(body, fields: list[str]) -> None:
         raise ApiError(422, "missing_fields", f"Missing required fields: {', '.join(missing)}")
 
 
-def _task_or_404(task_id: str) -> dict:
-    if task_id not in TASKS:
+def _task_or_404(task_id: str) -> TaskTemplate:
+    tpl = get_content().tasks.get(task_id)
+    if tpl is None:
         raise ApiError(404, "not_found", f"Unknown task {task_id!r}")
-    return TASKS[task_id]
+    return tpl
 
 
 @router.put("/onboarding", response_model=ProfileResponse)
 def onboarding(body: OnboardingRequest) -> ProfileResponse:
-    school = next((s for s in SCHOOLS if s.id == body.school_id), None)
-    if school is None or school.support_status != SupportStatus.SUPPORTED:
+    chosen = school(body.school_id)
+    if chosen is None or chosen.support_status != SupportStatus.SUPPORTED:
         raise ApiError(409, "unsupported_school", "This school is not supported yet")
     profile = demo_profile().model_copy(update={
-        "school": school, "program_end_date": body.program_end_date, "degree_level": body.degree_level,
+        "school": chosen, "program_end_date": body.program_end_date, "degree_level": body.degree_level,
         "opt_selection": None, "stage": None, "stage_dates": StageDates(), "offer": None,
     })
     return ProfileResponse(profile=profile)
@@ -93,7 +94,7 @@ def checklist() -> ChecklistResponse:
     return ChecklistResponse(
         situation=profile,
         graduation_banner=graduation_banner(profile.program_end_date, date.today()),
-        modules=MODULES,
+        modules=modules(),
         opt_summary=OptSummary(
             started=profile.opt_selection is not None,
             progress=len(done) / len(plan.tasks),
@@ -142,17 +143,17 @@ def task_detail(task_id: str) -> TaskDetailResponse:
     task = next(t for t in build_plan(demo_profile()).tasks if t.id == task_id)
     return TaskDetailResponse(
         task=task,
-        template_content=TemplateContent(steps=tpl["steps"], documents=tpl["documents"]),
-        sources=[SOURCES[s] for s in tpl["sources"]],
-        field_hints=FIELD_HINTS,
+        template_content=TemplateContent(steps=tpl.steps, documents=documents(task_id)),
+        sources=[source(s) for s in tpl.source_ids],
+        field_hints=get_content().policy.field_hints,
     )
 
 
 @router.patch("/tasks/{task_id}", response_model=TaskPatchResponse)
 def patch_task(task_id: str, body: TaskPatchRequest) -> TaskPatchResponse:
-    _task_or_404(task_id)
+    tpl = _task_or_404(task_id)
     if body.status == TaskStatus.COMPLETED:
-        _require(body, COMPLETE_REQUIRED.get(task_id, []))
+        _require(body, tpl.complete_requires)
     profile = demo_profile()
     dates = profile.stage_dates.model_copy(update=body.model_dump(exclude={"status"}, exclude_none=True))
     statuses = {task_id: body.status} if body.status else {}

@@ -4,12 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
 from app.catalog_loader import get_catalog
+from app.opt.content import get_content
 from app.errors import register_error_handlers
 from app.routers import assistant, auth, chat, checklist, me, profile, schools, tasks
 from app.schemas.api import HealthResponse
 
 # Load and validate the task catalog at import time so broken YAML fails the deploy, not a request.
 CATALOG_TASK_COUNT = len(get_catalog().tasks)
+OPT_TASK_COUNT = len(get_content().tasks)  # OPT content YAML, same fail-fast rule
 
 app = FastAPI(title="Newcomer Navigator API", version=config.APP_VERSION)
 

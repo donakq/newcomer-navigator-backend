@@ -1,0 +1,18 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T01
+policy_pack_id: uw-opt
+title: Confirm which OPT process applies to you
+order: 1
+prerequisites: []
+due_type: UNKNOWN
+timeline_node: null
+deadline_node: null
+complete_requires: []
+waiting_records: null
+steps:
+  - "Confirm your Program End Date and that you need post-completion OPT."
+  - "Read the full process from UW ISS to USCIS."
+documents:
+  - name: Current I-20
+    where_to_get: Issued by UW
+source_ids: [uw-post-completion-opt]

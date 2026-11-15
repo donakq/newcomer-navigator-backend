@@ -1,0 +1,19 @@
+# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+id: T05
+policy_pack_id: uw-opt
+title: Submit Form I-765 to USCIS
+order: 5
+prerequisites: [T03]
+due_type: FEDERAL
+timeline_node: N3                  # date shown on the Checklist
+deadline_node: N4                  # hard deadline
+complete_requires: [uscis_receipt_date]
+waiting_records: null
+steps:
+  - "File online or by mail."
+  - "Make sure USCIS receives it before your latest filing date."
+  - "Keep your Receipt Notice (I-797C)."
+documents:
+  - name: All materials from T04
+    where_to_get: null
+source_ids: [uscis-i765]

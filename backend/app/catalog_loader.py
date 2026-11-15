@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from app.schemas.catalog import Catalog, CatalogEvent, CatalogTask, Condition
 from app.schemas.profile import Profile
 
-CATALOG_DIR = Path(__file__).resolve().parent.parent / "catalog"
+CATALOG_DIR = Path(__file__).resolve().parent.parent / "catalog" / "legacy"
 PROFILE_FIELDS = set(Profile.model_fields)
 
 

@@ -1,0 +1,36 @@
+# C2 UW Policy Pack (Data Spec 2.2). MOCK: placeholder values until the policy reviewer signs off.
+id: uw-opt
+school_id: uw
+version: 1
+status: REVIEW_REQUIRED            # DRAFT | REVIEW_REQUIRED | REVIEWED_ACTIVE | RETIRED
+reviewed_at: null                  # TODO(reviewer)
+reviewer: null                     # TODO(reviewer)
+
+timeline:
+  t_school_days: 14                # T_s   TODO(reviewer)
+  school_windows:                  # W_s
+    - rule: days_before_program_end
+      days: 90                     # TODO(reviewer)
+      source_id: uw-post-completion-opt
+  source_ids: [uw-post-completion-opt]
+
+office:
+  office_display_name: UW ISS
+  contact_email: null              # TODO(reviewer)
+  phone: null                      # TODO(reviewer)
+  office_hours: null               # TODO(reviewer)
+  contact_page_url: null           # TODO(reviewer)
+  preferred_channel: EMAIL         # TODO(reviewer)
+  advising_form_url: null
+
+module_links:                      # TODO(reviewer)
+  maintaining_status: null
+  health_insurance: null
+  travel: null
+  taxes: null
+
+field_hints:                       # TODO(reviewer)
+  program_end_date: "Look at Program End Date on your I-20."
+  dso_rec_date: "On your OPT I-20, see the OPT recommendation section."
+  uscis_receipt_date: "On your Receipt Notice (Form I-797C), see Received Date."
+  i20_request_date: "The submission date in MyISSS."

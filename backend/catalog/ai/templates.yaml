@@ -1,0 +1,17 @@
+# C7 + C9 AI text templates (Data Spec 2.6). Placeholders: {topic}, {office_display_name}.
+refusal:
+  en: "I can only help with OPT applications in this app. For questions about {topic}, please contact {office_display_name} or visit its website."
+  zh: "这个应用只能回答 OPT 申请相关的问题。关于{topic}，请联系 {office_display_name} 或访问其官网。"   # TODO(PM)
+unverifiable:
+  en: "I can't verify this for your case. Please confirm with {office_display_name}."
+  zh: null                         # TODO(PM)
+unsupported_opt:
+  en: null                         # TODO(PM)
+  zh: null                         # TODO(PM)
+disclaimer:
+  en: null                         # TODO(PM)
+  zh: "本产品不提供法律建议，请以学校国际学生办公室和 USCIS 官方信息为准。"
+dso_draft:
+  question_types: [CONFIRM_DATES, I20_STATUS, DOCUMENTS, RFE_OR_DENIAL, OTHER]
+  structure: [greeting, who_i_am, my_situation, question, what_i_tried, thanks]
+  placeholders: ["[YOUR FULL NAME]", "[YOUR STUDENT ID]"]

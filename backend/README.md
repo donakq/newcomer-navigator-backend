@@ -54,14 +54,24 @@ Used by the current mock frontend; removed once the real frontend switches to th
 | POST | `/api/tasks/{task_id}/steps/{step_id}/dso-draft` | Email draft for asking the DSO (fixed template) |
 | POST | `/api/chat` | `{"message": "..."}` |
 
-## Editing task content
+## Editing content
 
-Tasks live in `catalog/tasks/<task_id>.yaml`, one file per task. Events the chat can recognize live in `catalog/events.yaml`. The fields are described in the design notes (Task Catalog Schema).
+OPT content lives in `catalog/` as YAML (format: the OPT MVP v1 Data Spec). The app validates it at startup, so a broken file stops the deploy instead of breaking pages.
 
-- Copy an existing task file as a starting point.
-- When you change a task's steps or text, bump its `version` by 1.
-- Use only profile fields that exist in `app/schemas/profile.py` in `when` conditions.
-- Run `pytest` before opening the PR. A broken YAML file stops the whole app from starting, so the site would go down.
+| File | What it holds | Who fills it |
+|---|---|---|
+| `catalog/schools.yaml` | Supported schools | PM |
+| `catalog/policy/uw.yaml` | UW Policy Pack: processing time, request window, office contact, field hints, review status | Policy reviewer |
+| `catalog/federal.yaml` | USCIS processing times, buffer, federal rule references | Policy reviewer |
+| `catalog/sources.yaml` | Official sources (URL, last reviewed) | Policy reviewer |
+| `catalog/tasks/T01.yaml` … `T06.yaml` | Task steps, documents, sources, prerequisites, which timeline node to show | Policy reviewer |
+| `catalog/ai/*.yaml` | AI chips, refusal / disclaimer templates, glossary | PM |
+
+Every value is a placeholder for now and is marked `TODO(reviewer)` or `TODO(PM)`. While the Policy Pack status is not `REVIEWED_ACTIVE`, the plan response carries a warning saying dates are unverified.
+
+Checks that run at startup: every `source_id` exists; task prerequisites and timeline nodes exist; `complete_requires` only names known date fields; `REVIEWED_ACTIVE` needs `reviewer` and `reviewed_at`; a `FORM` / `PORTAL` contact channel needs `advising_form_url`; all four field hints are present. Run `pytest` before opening a PR.
+
+`catalog/legacy/` holds the old newcomer tasks (SSN, phone, bank) used by the legacy endpoints.
 
 ## Layout
 
@@ -74,7 +84,8 @@ app/ai/client.py      the only module that calls the LLM
 app/catalog_loader.py loads and validates catalog/ at startup
 app/errors.py         error format; app/deps.py: bearer token (OPT) and X-User-Id (legacy) checks
 app/opt/timeline.py   OPT date engine: N1–N7, risk labels (pure functions, no LLM)
-app/mock/             mock data behind the OPT endpoints until the database and login exist
+app/opt/content.py    loads and validates the OPT content YAML in catalog/
+app/mock/             demo student behind the OPT endpoints until the database and login exist
 catalog/              team-maintained task YAML files and events.yaml
 tests/
 ```

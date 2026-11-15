@@ -3,7 +3,7 @@
 from datetime import date
 
 from app.opt.timeline import TimelineInput, compute_timeline
-from app.mock.opt_demo import DEMO_PARAMS, demo_profile
+from app.mock.opt_demo import demo_params, demo_profile
 
 AUTH = {"Authorization": "Bearer mock-token"}
 
@@ -175,7 +175,7 @@ def test_generate_plan_uses_date_engine(client):
             has_offer=True,
             offer_start=profile.offer.offer_start_date,
         ),
-        DEMO_PARAMS,
+        demo_params(profile),
     )
     nodes = {n["id"]: n for n in plan["nodes"]}
     assert nodes["N3"]["date"] == expected.node("N3").date.isoformat()

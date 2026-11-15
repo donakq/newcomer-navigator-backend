@@ -1,0 +1,50 @@
+# C4 Official sources (Data Spec 2.4 / PRD Appendix A). MOCK: every url is TODO(reviewer).
+# A source with url or last_reviewed missing must not back a definitive answer.
+- id: uw-post-completion-opt
+  title: UW — Post-Completion OPT
+  url: null
+  publisher: UW_ISS
+  scope: [T01, T02, T03, school_process]
+  last_reviewed: null
+- id: uw-opt-faq
+  title: UW — OPT FAQ
+  url: null
+  publisher: UW_ISS
+  scope: [T03, opt_rules]
+  last_reviewed: null
+- id: uscis-i765
+  title: USCIS — Form I-765
+  url: null
+  publisher: USCIS
+  scope: [T04, T05, form_help]
+  last_reviewed: null
+- id: uscis-case-status
+  title: USCIS Case Status Online
+  url: null
+  publisher: USCIS
+  scope: [T06, tracking]
+  last_reviewed: null
+- id: dhs-sitc-opt
+  title: DHS Study in the States — OPT
+  url: null
+  publisher: DHS
+  scope: [opt_rules]
+  last_reviewed: null
+- id: cbp-i94
+  title: CBP — I-94
+  url: null
+  publisher: CBP
+  scope: [T04, documents]
+  last_reviewed: null
+- id: uscis-processing-times
+  title: USCIS — Processing Times
+  url: null
+  publisher: USCIS
+  scope: [T06, tracking]
+  last_reviewed: null
+- id: uscis-premium-processing
+  title: USCIS — Premium Processing
+  url: null
+  publisher: USCIS
+  scope: [T04, start_date]
+  last_reviewed: null

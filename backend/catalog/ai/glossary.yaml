@@ -1,0 +1,16 @@
+# C8 Glossary (Data Spec 2.6 / PRD Appendix B). TODO(PM): English definitions.
+- {term: F-1, full_name: F-1 student status, definition_en: null, definition_zh: 美国学生身份；本产品默认用户为 F-1 学生}
+- {term: OPT, full_name: Optional Practical Training, definition_en: null, definition_zh: F-1 学生在专业相关领域工作的许可}
+- {term: Post-Completion OPT, full_name: null, definition_en: null, definition_zh: 毕业后使用的 OPT，v1 唯一支持的类型}
+- {term: I-20, full_name: Certificate of Eligibility for Nonimmigrant Student Status, definition_en: null, definition_zh: 学校签发的 F-1 身份文件}
+- {term: Program End Date, full_name: null, definition_en: null, definition_zh: I-20 上的项目结束日期}
+- {term: DSO, full_name: Designated School Official, definition_en: null, definition_zh: 学校指定的国际学生官员，负责在 SEVIS 中推荐 OPT}
+- {term: SEVIS, full_name: Student and Exchange Visitor Information System, definition_en: null, definition_zh: 记录国际学生信息的政府系统}
+- {term: OPT I-20, full_name: null, definition_en: null, definition_zh: DSO 推荐 OPT 后学校签发的新 I-20，上面带有 OPT 推荐信息}
+- {term: USCIS, full_name: U.S. Citizenship and Immigration Services, definition_en: null, definition_zh: 美国移民局，负责审批 I-765}
+- {term: I-765, full_name: Application for Employment Authorization, definition_en: null, definition_zh: 向 USCIS 申请工作许可的表格；申请 OPT 就是递交这张表}
+- {term: I-94, full_name: Arrival/Departure Record, definition_en: null, definition_zh: 入境记录，申请材料之一}
+- {term: Receipt Notice, full_name: Form I-797C, definition_en: null, definition_zh: USCIS 收到申请后发出的收据通知，载有收到日期}
+- {term: Premium Processing, full_name: null, definition_en: null, definition_zh: 向 USCIS 加付费用换取更快处理的服务}
+- {term: RFE, full_name: Request for Evidence, definition_en: null, definition_zh: USCIS 要求补充材料的通知}
+- {term: EAD, full_name: Employment Authorization Document, definition_en: null, definition_zh: I-765 批准后寄来的工作许可卡，写明可工作的起止日期}

@@ -1,12 +1,14 @@
-"""Mock data for the OPT API contract.
+"""Mock demo student for the OPT API contract.
 
-Everything here is a placeholder until the database, login and the reviewed UW Policy Pack exist.
-Dates are real: the demo plan runs through the timeline engine with PRD persona A
-(P = 2027-06-11, offer start S = 2027-07-12). Policy values marked TODO(reviewer) are not verified.
+Content (schools, UW Policy Pack, federal parameters, sources, task templates) is read from the
+catalog YAML via app.opt.content, so the mock shows exactly what the team has filled in so far.
+Only the user is fake: one demo student, PRD persona A (UW, Master, P = 2027-06-11, S = 2027-07-12).
+Nothing is saved; this module goes away once the database and login exist.
 """
 
 from datetime import date, datetime, timezone
 
+from app.opt.content import OptContent, get_content
 from app.opt.timeline import (
     DateState,
     DueType,
@@ -25,145 +27,71 @@ from app.schemas.opt import (
     Module,
     ModuleStatus,
     Offer,
-    Office,
     OptIntent,
     OptSelection,
     OptType,
     Plan,
     PlanTask,
-    PreferredChannel,
     Profile,
     School,
     Source,
     Stage,
     StageDates,
-    SupportStatus,
     TaskLabel,
     TaskStatus,
-    TemplateContent,
     YesNoNotSure,
 )
 
-POLICY_VERSION = "uw-2026.11-draft"
-
-# TODO(reviewer): T_s, T_u and B come from the reviewed UW Policy Pack; these are the PRD 6.4 assumptions.
-DEMO_PARAMS = TimelineParams(t_school=14, t_uscis_standard=90, t_uscis_premium=30, buffer=14)
-
-UW = School(id="uw", school_name="University of Washington", support_status=SupportStatus.SUPPORTED)
-SCHOOLS = [
-    UW,
-    School(id="wsu", school_name="Washington State University", support_status=SupportStatus.UNSUPPORTED),
-    School(id="seattleu", school_name="Seattle University", support_status=SupportStatus.UNSUPPORTED),
-]
-
-# TODO(reviewer): fill from the UW ISS official contact page.
-UW_OFFICE = Office(
-    office_display_name="UW ISS",
-    contact_email=None,
-    phone=None,
-    office_hours=None,
-    contact_page_url=None,
-    preferred_channel=PreferredChannel.EMAIL,
-    advising_form_url=None,
-)
-
-MODULES = [
-    Module(id="work_authorization", title="Work authorization", status=ModuleStatus.OPEN, link=None),
-    Module(id="maintaining_status", title="Maintaining status", status=ModuleStatus.COMING_SOON, link=None),
-    Module(id="health_insurance", title="Health insurance", status=ModuleStatus.COMING_SOON, link=None),
-    Module(id="travel", title="Travel", status=ModuleStatus.COMING_SOON, link=None),
-    Module(id="taxes", title="Taxes", status=ModuleStatus.COMING_SOON, link=None),
-]
-
-# Appendix A sources. URL None = not yet verified by the policy reviewer.
-SOURCES = {
-    "uw_opt": Source(title="UW ISS: Post-Completion OPT", url=None, last_reviewed=None),
-    "uw_opt_faq": Source(title="UW ISS: OPT FAQ", url=None, last_reviewed=None),
-    "uscis_i765": Source(title="USCIS: Form I-765", url="https://www.uscis.gov/i-765", last_reviewed=None),
-    "cbp_i94": Source(title="CBP: I-94 website", url=None, last_reviewed=None),
-    "uscis_case_status": Source(title="USCIS Case Status Online", url="https://egov.uscis.gov/", last_reviewed=None),
-    "uscis_processing_times": Source(title="USCIS Processing Times", url=None, last_reviewed=None),
+MODULE_TITLES = {
+    "work_authorization": "Work authorization",
+    "maintaining_status": "Maintaining status",
+    "health_insurance": "Health insurance",
+    "travel": "Travel",
+    "taxes": "Taxes",
 }
-
-# TODO(reviewer): field hints come from the Policy Pack.
-FIELD_HINTS = {
-    "program_end_date": "Program End Date on your current I-20.",
-    "dso_rec_date": "The OPT recommendation section on page 2 of your new OPT I-20.",
-    "uscis_receipt_date": "Received Date on your Receipt Notice (Form I-797C).",
-    "i20_request_date": "The submission record of your OPT request in MyISSS.",
-}
-
-# Task templates (PRD 5.1 and 5.2). Content is a draft until reviewed.
-TASKS = {
-    "T01": dict(
-        title="Confirm which OPT process applies to you",
-        prerequisites=[], node_ids=[], node=None,
-        steps=["Confirm your Program End Date and that you need post-completion OPT.",
-               "Read the full process from UW ISS to USCIS."],
-        documents=[Document(name="Current I-20", where_to_get="Issued by UW")],
-        sources=["uw_opt"],
-    ),
-    "T02": dict(
-        title="Request your OPT I-20 from UW ISS",
-        prerequisites=[], node_ids=["N1", "N1b"], node="N1",
-        steps=["Submit the OPT request the way UW ISS requires (see the Policy Pack).",
-               "Submit inside the school's request window.",
-               "Wait for UW ISS to review it."],
-        documents=[Document(name="Per UW ISS requirements", where_to_get="UW Policy Pack")],
-        sources=["uw_opt"],
-    ),
-    "T03": dict(
-        title="Confirm you received your OPT I-20",
-        prerequisites=["T02"], node_ids=["N2"], node="N1b",
-        steps=["Check the OPT recommendation and dates on the new I-20.",
-               "Enter your DSO recommendation date here.",
-               "If anything is wrong, contact UW ISS."],
-        documents=[Document(name="New OPT I-20", where_to_get="Issued by UW")],
-        sources=["uw_opt", "uw_opt_faq"],
-    ),
-    "T04": dict(
-        title="Prepare your Form I-765 documents",
-        prerequisites=[], node_ids=["N3", "N5"], node="N3",
-        steps=["Gather documents following the USCIS instructions.",
-               "Choose your OPT start date.",
-               "Decide whether to use premium processing."],
-        documents=[
-            Document(name="New OPT I-20", where_to_get="Issued by UW"),
-            Document(name="I-94", where_to_get="CBP I-94 website"),
-            Document(name="Passport", where_to_get="Your own"),
-            Document(name="Passport-style photos", where_to_get="Photo service"),
-            Document(name="Previous I-20s or EAD cards, if any", where_to_get="Your records"),
-            Document(name="Filing fee", where_to_get="See current USCIS instructions"),
-        ],
-        sources=["uscis_i765", "cbp_i94"],
-    ),
-    "T05": dict(
-        title="File Form I-765 with USCIS",
-        prerequisites=["T03"], node_ids=["N4"], node="N4",
-        steps=["File online or by mail.",
-               "Make sure USCIS receives it before your last filing date.",
-               "Keep your Receipt Notice."],
-        documents=[Document(name="All documents from T04", where_to_get="T04")],
-        sources=["uscis_i765"],
-    ),
-    "T06": dict(
-        title="Track your USCIS case",
-        prerequisites=["T05"], node_ids=["N6", "N7"], node="N6",
-        steps=["Check your case status with your receipt number.",
-               "Watch for a Request for Evidence (RFE).",
-               "When the EAD arrives, check the information on the card."],
-        documents=[Document(name="Receipt Notice (I-797C)", where_to_get="Mailed by USCIS")],
-        sources=["uscis_case_status", "uscis_processing_times"],
-    ),
-}
-
 DONE_FOR_PREREQ = {TaskStatus.WAITING_EXTERNAL, TaskStatus.COMPLETED}
 
 
+def policy_version(content: OptContent | None = None) -> str:
+    policy = (content or get_content()).policy
+    return f"{policy.id}-v{policy.version}"
+
+
+def schools() -> list[School]:
+    return [School(**s.model_dump()) for s in get_content().schools]
+
+
+def school(school_id: str) -> School | None:
+    return next((s for s in schools() if s.id == school_id), None)
+
+
+def modules() -> list[Module]:
+    links = get_content().policy.module_links
+    return [
+        Module(
+            id=module_id,
+            title=title,
+            status=ModuleStatus.OPEN if module_id == "work_authorization" else ModuleStatus.COMING_SOON,
+            link=links.get(module_id),
+        )
+        for module_id, title in MODULE_TITLES.items()
+    ]
+
+
+def source(source_id: str) -> Source:
+    s = get_content().sources[source_id]
+    return Source(id=s.id, title=s.title, url=s.url, publisher=s.publisher, last_reviewed=s.last_reviewed)
+
+
+def documents(task_id: str) -> list[Document]:
+    return [Document(**d.model_dump()) for d in get_content().tasks[task_id].documents]
+
+
 def demo_profile() -> Profile:
+    content = get_content()
     return Profile(
         email="demo@uw.edu",
-        school=UW,
+        school=school("uw"),
         degree_level=DegreeLevel.MASTER,
         program_end_date=date(2027, 6, 11),
         timezone="America/Los_Angeles",
@@ -178,8 +106,19 @@ def demo_profile() -> Profile:
             start_flexible=YesNoNotSure.NOT_SURE,
             premium_intent=YesNoNotSure.NO,
         ),
-        policy_version=POLICY_VERSION,
-        policy_last_reviewed=None,
+        policy_version=policy_version(content),
+        policy_last_reviewed=content.policy.reviewed_at,
+    )
+
+
+def demo_params(profile: Profile) -> TimelineParams:
+    content = get_content()
+    return TimelineParams(
+        t_school=content.policy.timeline.t_school_days,
+        t_uscis_standard=content.federal.processing.t_uscis_standard_days,
+        t_uscis_premium=content.federal.processing.t_uscis_premium_days,
+        buffer=content.federal.buffer_days,
+        school_window_open=content.policy.school_window_open(profile.program_end_date),
     )
 
 
@@ -213,39 +152,43 @@ def _timeline(profile: Profile, today: date) -> TimelineResult:
             preferred_start=offer.preferred_start_date,
             premium=offer.premium_intent == YesNoNotSure.YES,
         ),
-        DEMO_PARAMS,
+        demo_params(profile),
     )
 
 
-def _label(due_at: date | None, due_type: DueType, status: TaskStatus, today: date) -> TaskLabel | None:
-    if due_at is None or due_type != DueType.FEDERAL or status == TaskStatus.COMPLETED:
+def _label(deadline: date | None, status: TaskStatus, today: date) -> TaskLabel | None:
+    """PRD F03: URGENT = <= 7 days to the hard deadline; OVERDUE = past it and not done."""
+    if deadline is None or status == TaskStatus.COMPLETED:
         return None
-    if due_at < today:
+    if deadline < today:
         return TaskLabel.OVERDUE
-    return TaskLabel.URGENT if (due_at - today).days <= 7 else None
+    return TaskLabel.URGENT if (deadline - today).days <= 7 else None
 
 
 def build_tasks(timeline: TimelineResult, statuses: dict[str, TaskStatus], today: date) -> list[PlanTask]:
     nodes = {n.id: n for n in timeline.nodes}
     tasks = []
-    for task_id, tpl in TASKS.items():
-        status = statuses.get(task_id, TaskStatus.NOT_STARTED)
-        blocked_by = [p for p in tpl["prerequisites"] if statuses.get(p) not in DONE_FOR_PREREQ]
+    for tpl in get_content().tasks.values():
+        status = statuses.get(tpl.id, TaskStatus.NOT_STARTED)
+        blocked_by = [p for p in tpl.prerequisites if statuses.get(p) not in DONE_FOR_PREREQ]
         if blocked_by and status == TaskStatus.NOT_STARTED:
             status = TaskStatus.BLOCKED
-        node = nodes.get(tpl["node"]) if tpl["node"] else None
-        due_at = node.date if node else None
-        due_type = node.due_type if node else DueType.UNKNOWN
+        node = nodes.get(tpl.timeline_node) if tpl.timeline_node else None
+        deadline_node = nodes.get(tpl.deadline_node) if tpl.deadline_node else None
+        if deadline_node is None and node is not None and node.due_type == DueType.FEDERAL:
+            deadline_node = node
+        deadline_at = deadline_node.date if deadline_node else None
         tasks.append(PlanTask(
-            id=task_id,
-            title=tpl["title"],
+            id=tpl.id,
+            title=tpl.title,
             status=status,
-            due_at=due_at,
-            due_type=due_type,
+            due_at=node.date if node else None,
+            due_type=node.due_type if node else tpl.due_type,
             date_state=node.date_state if node else DateState.UNKNOWN,
-            label=_label(due_at, due_type, status, today),
+            deadline_at=deadline_at,
+            label=_label(deadline_at, status, today),
             blocked_by=blocked_by,
-            node_ids=tpl["node_ids"],
+            node_ids=[n for n in (tpl.timeline_node, tpl.deadline_node) if n],
         ))
     return tasks
 
@@ -258,13 +201,13 @@ def build_plan(profile: Profile, statuses: dict[str, TaskStatus] | None = None, 
         version=version,
         status="ACTIVE",
         opt_type=OptType.POST_COMPLETION,
-        policy_version=POLICY_VERSION,
+        policy_version=policy_version(),
         generated_at=datetime.now(timezone.utc),
         branch=timeline.branch,
         window=timeline.window,
         too_early=timeline.too_early,
         nodes=timeline.nodes,
         risk_labels=timeline.risks,
-        warnings=["Policy values are unreviewed placeholders (mock data)."],
+        warnings=["Mock data: one demo student, nothing is saved.", *get_content().warnings],
         tasks=build_tasks(timeline, statuses or {}, today),
     )

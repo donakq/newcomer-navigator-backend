@@ -1,0 +1,15 @@
+# C3 Federal parameters (Data Spec 2.3). MOCK: values are the PRD 6.4 assumptions.
+reviewed_at: null                  # TODO(reviewer)
+reviewer: null
+rules:                             # Implemented in app/opt/timeline.py; recorded here for sign-off
+  earliest_filing_days_before_end: 90
+  latest_filing_days_after_end: 60
+  filing_days_after_recommendation: 30
+  max_unemployment_days: 90        # P1
+  weekend_holiday_rule: CALENDAR_DAYS   # TODO(reviewer)
+  source_ids: [uscis-i765, dhs-sitc-opt]
+processing:
+  t_uscis_standard_days: 90        # TODO(reviewer): check USCIS Processing Times
+  t_uscis_premium_days: 30         # TODO(reviewer)
+  source_ids: [uscis-processing-times, uscis-premium-processing]
+buffer_days: 14                    # B: card mailing + margin, product setting
