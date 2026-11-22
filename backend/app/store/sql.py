@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
 
+from app.mock.opt_demo import policy_version
 from app.opt.content import get_content
 from app.schemas.opt import Offer, OptSelection, ProcessingChoice, Profile, School, StageDates, TaskStatus
 from app.store.base import SESSION_DAYS, UserState, hash_token, new_token
@@ -89,7 +90,7 @@ class TaskRow(Base):  # U7: only the statuses the student set; dates are recompu
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
-PROFILE_DATE_FIELDS = ("i20_request_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "requested_start_date")
+PROFILE_DATE_FIELDS = tuple(StageDates.model_fields)
 PROCESSING_FIELDS = tuple(ProcessingChoice.model_fields)
 OFFER_FIELDS = ("has_offer", "offer_start_date", "start_flexible", "start_preference", "preferred_start_date",
                 "premium_intent")
@@ -225,6 +226,6 @@ def _to_profile(user: UserRow, row: ProfileRow, offer: OfferRow | None,
         processing=ProcessingChoice(**{f: getattr(processing, f) for f in PROCESSING_FIELDS}) if processing
         else ProcessingChoice(),
         # Policy info always reflects the current catalog, not what it was when saved.
-        policy_version=f"{content.policy.id}-v{content.policy.version}",
+        policy_version=policy_version(content),
         policy_last_reviewed=content.policy.reviewed_at,
     )

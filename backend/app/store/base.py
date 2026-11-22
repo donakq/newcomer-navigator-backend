@@ -5,6 +5,7 @@ import secrets
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from app.config import DEFAULT_TIMEZONE
 from app.schemas.opt import Profile, TaskStatus
 
 SESSION_DAYS = 30
@@ -16,7 +17,7 @@ class UserState:
 
     user_id: str
     email: str
-    timezone: str = "America/Los_Angeles"
+    timezone: str = DEFAULT_TIMEZONE
     profile: Profile | None = None  # None until onboarding
     task_statuses: dict[str, TaskStatus] = field(default_factory=dict)
     plan_version: int = 1

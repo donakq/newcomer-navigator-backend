@@ -5,6 +5,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.config import DEFAULT_TIMEZONE
+
 from app.opt.timeline import DateState, DueType, Node, Risk, StartPreference, WindowStatus
 
 EMAIL_PATTERN = r"^[^@\s]+@[^@\s]+\.[^@\s]+$"
@@ -150,7 +152,7 @@ class EmailVerifyRequest(BaseModel):
     email: str = Field(pattern=EMAIL_PATTERN)
     code: str = Field(pattern=r"^\d{6}$")
     tos_accepted: bool
-    timezone: str = "America/Los_Angeles"
+    timezone: str = DEFAULT_TIMEZONE
 
 
 class EmailVerifyResponse(BaseModel):

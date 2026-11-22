@@ -13,13 +13,20 @@ from typing import Literal
 import yaml
 from pydantic import BaseModel, PositiveInt, ValidationError, model_validator
 
+from app.opt import timeline
 from app.opt.timeline import DueType
-from app.schemas.opt import Office, PolicyStatus, PreferredChannel, SupportStatus
+from app.schemas.opt import Office, PolicyStatus, PreferredChannel, StageDates, SupportStatus
 
 CONTENT_DIR = Path(__file__).resolve().parent.parent.parent / "catalog"
 
 NODE_IDS = {"N1", "N1b", "N1d", "N2", "N3", "N4", "N5", "N6", "N7"}
-STAGE_DATE_FIELDS = {"i20_request_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "requested_start_date"}
+STAGE_DATE_FIELDS = set(StageDates.model_fields)
+# federal.yaml rule -> the engine constant it must equal
+FEDERAL_RULES_IN_ENGINE = {
+    "earliest_filing_days_before_end": timeline.EARLIEST_FILING_DAYS_BEFORE_END,
+    "latest_filing_days_after_end": timeline.LATEST_FILING_DAYS_AFTER_END,
+    "filing_days_after_recommendation": timeline.FILING_DAYS_AFTER_RECOMMENDATION,
+}
 FIELD_HINT_KEYS = {"program_end_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "i20_request_date"}
 
 
@@ -221,6 +228,10 @@ def load_content(root: Path) -> OptContent:
         raise ValueError(f"policy/uw.yaml: field_hints missing {missing_hints}")
     _check_sources(policy.timeline.source_ids, sources, "policy/uw.yaml timeline")
     _check_sources([w.source_id for w in policy.timeline.school_windows], sources, "policy/uw.yaml school_windows")
+    for rule, engine_value in FEDERAL_RULES_IN_ENGINE.items():
+        if getattr(federal.rules, rule) != engine_value:
+            raise ValueError(f"federal.yaml: {rule} is {getattr(federal.rules, rule)}, but the date engine "
+                             f"uses {engine_value}; update app/opt/timeline.py too")
     _check_sources(policy.timeline.t_school.source_ids, sources, "policy/uw.yaml t_school")
     proc = federal.processing
     _check_sources(federal.rules.source_ids + proc.source_ids + proc.uscis_standard.source_ids

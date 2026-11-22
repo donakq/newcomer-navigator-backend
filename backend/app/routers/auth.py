@@ -6,17 +6,20 @@ from fastapi import APIRouter, Depends, Response
 
 from app.deps import current_session
 from app.store import get_store
+from app.store.base import SESSION_DAYS
 from app.errors import ApiError
 from app.schemas.opt import EmailStartRequest, EmailStartResponse, EmailVerifyRequest, EmailVerifyResponse
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 MOCK_CODE = "000000"
+RESEND_AFTER_SECONDS = 60  # PRD F01
+CODE_EXPIRES_IN_SECONDS = 10 * 60
 
 
 @router.post("/email/start", response_model=EmailStartResponse)
 def email_start(body: EmailStartRequest) -> EmailStartResponse:
-    return EmailStartResponse(resend_after_seconds=60, code_expires_in_seconds=600)
+    return EmailStartResponse(resend_after_seconds=RESEND_AFTER_SECONDS, code_expires_in_seconds=CODE_EXPIRES_IN_SECONDS)
 
 
 @router.post("/email/verify", response_model=EmailVerifyResponse)
@@ -28,7 +31,7 @@ def email_verify(body: EmailVerifyRequest) -> EmailVerifyResponse:
     token, is_new = get_store().login(body.email, body.timezone)
     return EmailVerifyResponse(
         token=token,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS),
         is_new_user=is_new,
     )
 
