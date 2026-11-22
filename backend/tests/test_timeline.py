@@ -1,6 +1,6 @@
 """Timeline date engine, checked against PRD v1.3 sections 6 (rules) and 8.4 (edge cases)."""
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -63,7 +63,7 @@ def test_offer_due_types():
 def test_offer_at_risk_when_start_is_too_close_to_filing_window():
     res = compute_timeline(offer(offer_start=date(2027, 6, 20)), PARAMS)
     assert Risk.AT_RISK in res.risks
-    assert res.node("N3").date == date(2027, 3, 13)  # clamped to N2 = P - 90
+    assert res.node("N3").date == date(2027, 3, 15)  # not before the I-20 is expected (N1b)
 
 
 def test_offer_at_risk_when_recommended_date_already_passed():
@@ -128,7 +128,7 @@ def test_no_offer_before_window_opens():
     res = compute_timeline(no_offer(), PARAMS)
     assert res.node("N1").date == date(2027, 2, 23)  # (P - 90) - 14 business days
     assert res.node("N2").date == date(2027, 3, 13)
-    assert res.node("N3").date == date(2027, 3, 13)
+    assert res.node("N3").date == date(2027, 3, 15)  # I-20 expected 2/23 + 14 business days
     assert res.node("N4").date == date(2027, 8, 10)
     assert res.node("N5").date is None
     assert res.node("N5").date_state == DateState.UNKNOWN
@@ -303,3 +303,29 @@ def test_i20_arrival_is_the_issue_date_when_known():
 def test_premium_ead_estimate_uses_business_days():
     res = compute_timeline(offer(dso_rec=R, premium=True, uscis_receipt=date(2027, 3, 1)), PARAMS)
     assert res.node("N6").date == date(2027, 4, 12)  # 3/1 + 30 business days
+
+
+# --- You can't file the I-765 before the OPT I-20 arrives ---
+
+
+def test_no_offer_recommended_filing_not_before_i20_arrives():
+    res = compute_timeline(no_offer(), UW)
+    assert res.node("N3").date >= res.node("N1b").date
+
+
+def test_offer_recommended_filing_not_before_i20_arrives():
+    # UW opens I-20 requests at P - 90, so the I-20 (3/13 + 14 business days = 4/1) lands after S - T_u - B = 3/30.
+    res = compute_timeline(offer(), UW.model_copy(update={"school_window_open": date(2027, 3, 13)}))
+    assert res.node("N3").date == date(2027, 4, 1)
+    assert res.node("N3").date >= res.node("N1b").date
+    assert Risk.AT_RISK in res.risks  # filing later than the offer needs
+
+
+def test_ead_estimate_follows_the_later_filing_date():
+    res = compute_timeline(no_offer(), UW)
+    assert res.node("N6").date == res.node("N3").date + timedelta(days=90)
+
+
+def test_known_recommendation_date_unchanged():
+    res = compute_timeline(offer(dso_rec=R), PARAMS)
+    assert res.node("N3").date == date(2027, 3, 30)

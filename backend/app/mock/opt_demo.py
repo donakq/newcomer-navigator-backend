@@ -240,6 +240,6 @@ def build_plan(profile: Profile, statuses: dict[str, TaskStatus] | None = None, 
         nodes=timeline.nodes,
         risk_labels=timeline.risks,
         processing=processing_times(profile),
-        warnings=["Mock data: one demo student, nothing is saved.", *get_content().warnings],
+        warnings=get_content().warnings,
         tasks=build_tasks(timeline, statuses or {}, today),
     )

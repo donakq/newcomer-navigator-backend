@@ -352,7 +352,7 @@ def test_student_picks_processing_time_and_plan_follows(client, auth):
     plan = client.get("/api/me/opt-plan", headers=auth).json()
     after = {n["id"]: n for n in plan["nodes"]}
     assert {p["id"]: p["used"] for p in plan["processing"]}["uscis_standard_days"] == 90
-    assert after["N3"]["date"] > before["N3"]["date"]  # shorter wait -> file later
+    assert after["N6"]["date"] < before["N6"]["date"]  # shorter wait -> EAD expected sooner
 
 
 def test_processing_time_outside_range_rejected(client, auth):
@@ -379,3 +379,8 @@ def test_office_has_reviewed_contact_details(client):
     assert office["preferred_channel"] == "FORM"
     assert office["advising_form_url"] == "https://iss.washington.edu/email/"
     assert "3–5 business days" in office["notes"]
+
+
+def test_plan_has_no_stale_mock_warning(client, auth):
+    warnings = client.get("/api/me/opt-plan", headers=auth).json()["warnings"]
+    assert not any("nothing is saved" in w for w in warnings)

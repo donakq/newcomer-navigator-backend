@@ -210,6 +210,12 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
             date_state=DateState.USER_CONFIRMED if inp.i20_request else DateState.PARTIAL,
         )
 
+    # The I-765 needs the OPT I-20, so N3 can't come before the I-20 is expected (N1b).
+    if not filed and n3_date and n1b.date and n1b.date > n3_date:
+        n3_date = n1b.date
+        if inp.has_offer and Risk.AT_RISK not in risks:
+            risks.append(Risk.AT_RISK)
+
     # N5: start date written on the I-765. Once filed it is fixed (PRD 6.2: changing S later does not recompute it).
     if inp.has_offer and inp.offer_start > p + _days(60):
         risks.append(Risk.GAP_WARNING)
