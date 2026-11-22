@@ -384,3 +384,48 @@ def test_office_has_reviewed_contact_details(client):
 def test_plan_has_no_stale_mock_warning(client, auth):
     warnings = client.get("/api/me/opt-plan", headers=auth).json()["warnings"]
     assert not any("nothing is saved" in w for w in warnings)
+
+
+# --- Moving back to an earlier stage clears the later stages' dates ---
+
+
+def _received(client, auth):
+    body = {"stage": "I20_RECEIVED", "i20_request_date": "2027-03-01", "dso_rec_date": "2027-03-20",
+            "i20_issue_date": "2027-03-20"}
+    assert client.put("/api/me/status", json=body, headers=auth).status_code == 200
+
+
+def test_moving_back_clears_later_stage_dates(client, auth):
+    _received(client, auth)
+    # The frontend still sends the old dates; the backend drops the ones past the chosen stage.
+    body = {"stage": "I20_REQUESTED", "i20_request_date": "2027-03-01", "dso_rec_date": "2027-03-20",
+            "i20_issue_date": "2027-03-20"}
+    dates = client.put("/api/me/status", json=body, headers=auth).json()["stage_dates"]
+    assert dates["i20_request_date"] == "2027-03-01"
+    assert dates["dso_rec_date"] is None
+    assert dates["i20_issue_date"] == "2027-03-20"  # kept: stands in for R until the SEVIS date is confirmed
+    profile = client.get("/api/me/profile", headers=auth).json()["profile"]
+    assert profile["stage_dates"]["dso_rec_date"] is None
+
+
+def test_back_to_planning_clears_every_stage_date(client, auth):
+    _received(client, auth)
+    body = {"stage": "PLANNING", "i20_request_date": "2027-03-01", "dso_rec_date": "2027-03-20"}
+    dates = client.put("/api/me/status", json=body, headers=auth).json()["stage_dates"]
+    assert all(v is None for v in dates.values())
+
+
+def test_moving_back_reopens_tasks_whose_dates_were_cleared(client, auth):
+    _received(client, auth)
+    client.put("/api/me/status", json={"stage": "PLANNING"}, headers=auth)
+    tasks = {t["id"]: t for t in client.get("/api/me/opt-plan", headers=auth).json()["tasks"]}
+    assert tasks["T02"]["status"] == "NOT_STARTED"  # was WAITING_EXTERNAL / COMPLETED
+    assert tasks["T03"]["status"] == "BLOCKED"  # was COMPLETED; T02 is open again
+
+
+def test_moving_back_uses_the_cleared_dates_in_the_plan(client, auth):
+    _received(client, auth)
+    client.put("/api/me/status", json={"stage": "PLANNING", "dso_rec_date": "2027-03-20"}, headers=auth)
+    plan = client.get("/api/me/opt-plan", headers=auth).json()
+    n4 = next(n for n in plan["nodes"] if n["id"] == "N4")
+    assert n4["date"] == "2027-08-10"  # P + 60: R is gone

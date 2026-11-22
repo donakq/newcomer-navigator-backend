@@ -61,6 +61,12 @@ STAGE_DONE = {
 DATE_STAGE = {"i20_request_date": Stage.I20_REQUESTED, "dso_rec_date": Stage.I20_RECEIVED,
               "uscis_receipt_date": Stage.I765_FILED}
 STAGE_ORDER = list(Stage)
+# The stage each date belongs to. Choosing an earlier stage clears the dates of the later ones.
+# The I-20 issue date sits with I20_REQUESTED: a student can hold it while the SEVIS date is still
+# unconfirmed (I20_RECEIVED requires dso_rec_date), and the timeline uses it as a stand-in for R.
+DATE_OWNER_STAGE = {"i20_request_date": Stage.I20_REQUESTED, "dso_rec_date": Stage.I20_RECEIVED,
+                    "i20_issue_date": Stage.I20_REQUESTED, "uscis_receipt_date": Stage.I765_FILED,
+                    "requested_start_date": Stage.I765_FILED}
 
 
 def current_state(token: str = Depends(current_session)) -> UserState:
@@ -101,6 +107,15 @@ def _apply_stage(state: UserState, stage: Stage) -> None:
     for task_id, status in STAGE_DONE[stage].items():
         if state.task_statuses.get(task_id) != TaskStatus.COMPLETED:
             state.task_statuses[task_id] = status
+
+
+def _reopen_tasks_missing_dates(state: UserState, dates: StageDates) -> None:
+    """A done or waiting task whose recorded date was cleared goes back to NOT_STARTED."""
+    for tpl in get_content().tasks.values():
+        needed = [f for f in [*tpl.complete_requires, tpl.waiting_records] if f]
+        if needed and any(getattr(dates, f) is None for f in needed) and \
+                state.task_statuses.get(tpl.id) in (TaskStatus.COMPLETED, TaskStatus.WAITING_EXTERNAL):
+            state.task_statuses.pop(tpl.id)
 
 
 def _commit(state: UserState, plan_changed: bool = True) -> None:
@@ -179,8 +194,10 @@ def opt_selection(body: OptSelectionRequest, state: UserState = Depends(current_
 def status(body: StatusRequest, state: UserState = Depends(current_state)) -> StatusResponse:
     profile = _profile(state)
     _require(body, STAGE_REQUIRED.get(body.stage, []))
-    dates = StageDates(**body.model_dump(exclude={"stage"}))
+    later = [f for f, s in DATE_OWNER_STAGE.items() if STAGE_ORDER.index(s) > STAGE_ORDER.index(body.stage)]
+    dates = StageDates(**body.model_dump(exclude={"stage", *later}))
     state.profile = profile.model_copy(update={"stage": body.stage, "stage_dates": dates})
+    _reopen_tasks_missing_dates(state, dates)
     _apply_stage(state, body.stage)
     _commit(state)
     return StatusResponse(stage=body.stage, stage_dates=dates)
