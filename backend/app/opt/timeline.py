@@ -13,6 +13,15 @@ from pydantic import BaseModel
 
 from app.opt.business_days import add_business_days, subtract_business_days
 
+# Federal rules (USCIS I-765 instructions). catalog/federal.yaml records the same numbers for sign-off;
+# the content loader fails the deploy if the two ever disagree.
+EARLIEST_FILING_DAYS_BEFORE_END = 90  # USCIS may receive the I-765 from P - 90
+LATEST_FILING_DAYS_AFTER_END = 60  # ... until P + 60
+FILING_DAYS_AFTER_RECOMMENDATION = 30  # ... and within 30 days of the SEVIS recommendation
+# Product rules (PRD 6 / 8.4)
+I20_REQUEST_LOOKBACK_DAYS = 120  # with an offer, N1 is not earlier than (P - 120) - T_s
+TOO_EARLY_DAYS = 365  # more than this before P: only show when the window opens
+
 
 class DueType(str, Enum):
     FEDERAL = "FEDERAL"
@@ -41,10 +50,10 @@ class Risk(str, Enum):
 
 
 class WindowStatus(str, Enum):
-    NOT_OPEN = "NOT_OPEN"  # before P - 90
-    OPEN = "OPEN"  # P - 90 .. P
-    AFTER_PROGRAM_END = "AFTER_PROGRAM_END"  # P + 1 .. P + 60
-    CLOSED = "CLOSED"  # after P + 60
+    NOT_OPEN = "NOT_OPEN"  # before the filing window opens (P - 90)
+    OPEN = "OPEN"  # window open, up to P
+    AFTER_PROGRAM_END = "AFTER_PROGRAM_END"  # P + 1 .. window close (P + 60)
+    CLOSED = "CLOSED"  # after the window closes
 
 
 class StartPreference(str, Enum):
@@ -101,12 +110,18 @@ def _days(n: int) -> timedelta:
     return timedelta(days=n)
 
 
+def filing_window(p: date) -> tuple[date, date]:
+    """First and last day USCIS may receive the I-765, from the Program End Date alone."""
+    return p - _days(EARLIEST_FILING_DAYS_BEFORE_END), p + _days(LATEST_FILING_DAYS_AFTER_END)
+
+
 def window_status(p: date, today: date) -> WindowStatus:
-    if today < p - _days(90):
+    opens, closes = filing_window(p)
+    if today < opens:
         return WindowStatus.NOT_OPEN
     if today <= p:
         return WindowStatus.OPEN
-    if today <= p + _days(60):
+    if today <= closes:
         return WindowStatus.AFTER_PROGRAM_END
     return WindowStatus.CLOSED
 
@@ -118,6 +133,7 @@ def _sorted(nodes: list[Node]) -> list[Node]:
 
 def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResult:
     p, today = inp.program_end, inp.today
+    window_opens, window_closes = filing_window(p)
     # USCIS counts 30 days from the SEVIS date; without it, the I-20 issue date (same day or later) is
     # used and flagged, because the real deadline may be a few days earlier.
     r = inp.dso_rec or inp.i20_issue
@@ -142,16 +158,17 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     risks: list[Risk] = [Risk.SEVIS_DATE_UNCONFIRMED] if r_from_issue else []
     r_state = DateState.USER_CONFIRMED if inp.dso_rec else DateState.PARTIAL
 
-    n2_date = max(p - _days(90), r) if r else p - _days(90)
-    n4_date = min(p + _days(60), r + _days(30)) if r else p + _days(60)
+    r_deadline = r + _days(FILING_DAYS_AFTER_RECOMMENDATION) if r else None
+    n2_date = max(window_opens, r) if r else window_opens
+    n4_date = min(window_closes, r_deadline) if r_deadline else window_closes
     # PRD 8.4: no legal filing date exists, or R is after USCIS already received the filing.
-    conflict = r is not None and (r + _days(30) < p - _days(90) or (filed and r > inp.uscis_receipt))
+    conflict = r is not None and (r_deadline < window_opens or (filed and r > inp.uscis_receipt))
     if conflict:
         risks.append(Risk.CONFLICT)
 
     # PRD 8.4: more than 12 months out -> only show when the filing window opens.
-    if (p - today).days > 365:
-        n2 = Node(id="N2", date=p - _days(90), due_type=DueType.FEDERAL, date_state=DateState.PARTIAL)
+    if (p - today).days > TOO_EARLY_DAYS:
+        n2 = Node(id="N2", date=window_opens, due_type=DueType.FEDERAL, date_state=DateState.PARTIAL)
         return result([n2], risks, too_early=True)
 
     t_uscis = params.t_uscis_premium if inp.premium else params.t_uscis_standard
@@ -174,12 +191,12 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     if n3_date is None:
         n1_date = None
     elif inp.has_offer:
-        floors = [subtract_business_days(p - _days(120), params.t_school)]
+        floors = [subtract_business_days(p - _days(I20_REQUEST_LOOKBACK_DAYS), params.t_school)]
         if params.school_window_open:
             floors.append(params.school_window_open)
         n1_date = max([subtract_business_days(n3_date, params.t_school), *floors])
     else:
-        n1_date = subtract_business_days(p - _days(90), params.t_school)
+        n1_date = subtract_business_days(window_opens, params.t_school)
         if params.school_window_open:
             n1_date = max(n1_date, params.school_window_open)
     deadline = params.school_request_deadline
@@ -217,17 +234,17 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
             risks.append(Risk.AT_RISK)
 
     # N5: start date written on the I-765. Once filed it is fixed (PRD 6.2: changing S later does not recompute it).
-    if inp.has_offer and inp.offer_start > p + _days(60):
+    if inp.has_offer and inp.offer_start > window_closes:
         risks.append(Risk.GAP_WARNING)
     if filed and inp.requested_start:
         n5_date = inp.requested_start
     elif inp.has_offer:
-        n5_date = min(inp.offer_start, p + _days(60))
+        n5_date = min(inp.offer_start, window_closes)
     elif inp.start_preference == StartPreference.ASAP:
-        n5_date = min(max(p + _days(1), today), p + _days(60))
+        n5_date = min(max(p + _days(1), today), window_closes)
     elif inp.start_preference == StartPreference.SPECIFIC_DATE:
-        if inp.preferred_start is None or not (p + _days(1) <= inp.preferred_start <= p + _days(60)):
-            raise ValueError("preferred_start must be between P + 1 and P + 60")
+        if inp.preferred_start is None or not (p + _days(1) <= inp.preferred_start <= window_closes):
+            raise ValueError(f"preferred_start must be between P + 1 and P + {LATEST_FILING_DAYS_AFTER_END}")
         n5_date = inp.preferred_start
     else:
         n5_date = None

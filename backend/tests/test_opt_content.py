@@ -116,3 +116,9 @@ def test_every_source_has_url_and_review_date():
 def test_glossary_has_english_for_reviewed_terms():
     missing = [g.term for g in get_content().glossary if not g.definition_en and g.term != "F-1"]
     assert missing == []
+
+
+def test_federal_yaml_must_match_date_engine(content_copy):
+    edit(content_copy / "federal.yaml", lambda d: d["rules"].update(latest_filing_days_after_end=45))
+    with pytest.raises(ValueError, match="latest_filing_days_after_end"):
+        load_content(content_copy)

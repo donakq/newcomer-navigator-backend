@@ -24,11 +24,8 @@ CJK = re.compile(r"[一-鿿]")
 OUT_OF_SCOPE = ("h-1b", "h1b", "green card", "绿卡", "cpt", "visa renewal", "签证续签")
 UNSUPPORTED_OPT = ("stem", "pre-completion")
 
-# Fallback until catalog/ai/templates.yaml has unsupported_opt filled in (TODO(PM)).
-UNSUPPORTED = {
-    "en": "{topic} is not supported in v1 yet. Please check the official {office} page.",
-    "zh": "v1 暂不支持 {topic}，请查看 {office} 官方页面。",
-}
+MAIN_SOURCE_ID = "uw-post-completion-opt"
+CONTACT_LABEL = "Contact My International Student Office"
 NEXT_STEP = {
     "en": "Your next step is to request your OPT I-20 from {office} (task T02).",
     "zh": "你的下一步是向 {office} 申请 OPT I-20（任务 T02）。",
@@ -46,7 +43,7 @@ def reply(req: AssistantRequest) -> AssistantResponse:
     office = content.policy.office.office_display_name
     refusal = content.templates.refusal
     conversation_id = req.conversation_id or f"conv-{uuid.uuid4().hex[:8]}"
-    contact = AssistantAction(kind="OPEN_CONTACT_PANEL", label="Contact My International Student Office", target=None)
+    contact = AssistantAction(kind="OPEN_CONTACT_PANEL", label=CONTACT_LABEL, target=None)
 
     topic = next((k for k in OUT_OF_SCOPE if k in text), None)
     if topic:
@@ -61,14 +58,14 @@ def reply(req: AssistantRequest) -> AssistantResponse:
         return AssistantResponse(
             conversation_id=conversation_id, intent=None, scope=Scope.UNSUPPORTED_OPT, confidence=0.9,
             language=lang,
-            answer=(getattr(content.templates.unsupported_opt, lang) or UNSUPPORTED[lang]).format(
-                topic=topic.upper(), office=office, office_display_name=office),
-            sources=[source("uw-post-completion-opt")], follow_up=None, actions=[contact],
+            answer=(getattr(content.templates.unsupported_opt, lang) or content.templates.unsupported_opt.en).format(
+                topic=topic.upper(), office_display_name=office),
+            sources=[source(MAIN_SOURCE_ID)], follow_up=None, actions=[contact],
         )
     return AssistantResponse(
         conversation_id=conversation_id, intent=Intent.NEXT_STEP, scope=Scope.IN, confidence=0.9, language=lang,
         answer=NEXT_STEP[lang].format(office=office),
-        sources=[source("uw-post-completion-opt")], follow_up=None,
+        sources=[source(MAIN_SOURCE_ID)], follow_up=None,
         actions=[AssistantAction(kind="OPEN_TASK", label=content.tasks["T02"].title, target="T02")],
     )
 
@@ -88,7 +85,7 @@ def draft(req: DsoDraftRequest, profile: Profile) -> DsoDraftResponse:
         "",
         f"My question: {req.user_question}",
         "",
-        "I have read the information on the UW ISS website.",
+        f"I have read the information on the {office.office_display_name} website.",
     ]
     if req.tone != DraftTone.SHORTER:
         lines += ["", "Thank you for your help.", "", "Best regards,", "[YOUR FULL NAME]"]

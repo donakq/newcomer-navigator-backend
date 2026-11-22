@@ -1,22 +1,24 @@
-"""Mock demo student for the OPT API contract.
+"""Plan Service: builds a student's plan (tasks + timeline) from their profile and the catalog.
 
 Content (schools, UW Policy Pack, federal parameters, sources, task templates) is read from the
-catalog YAML via app.opt.content, so the mock shows exactly what the team has filled in so far.
-Only the user is fake: one demo student, PRD persona A (UW, Master, P = 2027-06-11, S = 2027-07-12).
-Nothing is saved; this module goes away once the database and login exist.
+catalog YAML via app.opt.content. demo_profile() is PRD persona A (UW, Master, P = 2027-06-11,
+S = 2027-07-12), used by tests and as a sample.
 """
 
 from datetime import date, datetime, timezone
 
+from app.config import DEFAULT_TIMEZONE
 from app.opt.content import OptContent, get_content
 from app.opt.timeline import (
     DateState,
     DueType,
     TimelineInput,
     TimelineParams,
+    TOO_EARLY_DAYS,
     TimelineResult,
     WindowStatus,
     compute_timeline,
+    filing_window,
     window_status,
 )
 from app.schemas.opt import (
@@ -51,6 +53,7 @@ MODULE_TITLES = {
     "taxes": "Taxes",
 }
 DONE_FOR_PREREQ = {TaskStatus.WAITING_EXTERNAL, TaskStatus.COMPLETED}
+URGENT_DAYS = 7  # PRD F03: URGENT when the hard deadline is this many days away or fewer
 
 
 def policy_version(content: OptContent | None = None) -> str:
@@ -95,7 +98,7 @@ def demo_profile() -> Profile:
         school=school("uw"),
         degree_level=DegreeLevel.MASTER,
         program_end_date=date(2027, 6, 11),
-        timezone="America/Los_Angeles",
+        timezone=DEFAULT_TIMEZONE,
         opt_selection=OptSelection(
             opt_intent=OptIntent.AFTER_GRADUATION, first_time_at_level=True, opt_type=OptType.POST_COMPLETION
         ),
@@ -152,16 +155,12 @@ def demo_params(profile: Profile) -> TimelineParams:
 
 def graduation_banner(program_end: date, today: date) -> GraduationBanner:
     window = window_status(program_end, today)
+    opens, closes = filing_window(program_end)
     kind = BannerKind(window.value)
-    if window == WindowStatus.NOT_OPEN and (program_end - today).days > 365:
+    if window == WindowStatus.NOT_OPEN and (program_end - today).days > TOO_EARLY_DAYS:
         kind = BannerKind.TOO_EARLY
-    days_left = (program_end - today).days + 60 if window == WindowStatus.AFTER_PROGRAM_END else None
-    return GraduationBanner(
-        kind=kind,
-        window_opens_on=date.fromordinal(program_end.toordinal() - 90),
-        window_closes_on=date.fromordinal(program_end.toordinal() + 60),
-        days_left=days_left,
-    )
+    days_left = (closes - today).days if window == WindowStatus.AFTER_PROGRAM_END else None
+    return GraduationBanner(kind=kind, window_opens_on=opens, window_closes_on=closes, days_left=days_left)
 
 
 def _timeline(profile: Profile, today: date) -> TimelineResult:
@@ -188,12 +187,12 @@ def _timeline(profile: Profile, today: date) -> TimelineResult:
 
 
 def _label(deadline: date | None, status: TaskStatus, today: date) -> TaskLabel | None:
-    """PRD F03: URGENT = <= 7 days to the hard deadline; OVERDUE = past it and not done."""
+    """PRD F03: URGENT = <= URGENT_DAYS to the hard deadline; OVERDUE = past it and not done."""
     if deadline is None or status == TaskStatus.COMPLETED:
         return None
     if deadline < today:
         return TaskLabel.OVERDUE
-    return TaskLabel.URGENT if (deadline - today).days <= 7 else None
+    return TaskLabel.URGENT if (deadline - today).days <= URGENT_DAYS else None
 
 
 def build_tasks(timeline: TimelineResult, statuses: dict[str, TaskStatus], today: date) -> list[PlanTask]:
