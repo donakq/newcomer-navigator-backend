@@ -180,6 +180,7 @@ class Office(BaseModel):
     contact_page_url: str | None
     preferred_channel: PreferredChannel
     advising_form_url: str | None
+    notes: str | None = None  # how to reach the office, response time
 
 
 # --- Profile ---
@@ -214,6 +215,14 @@ class Offer(BaseModel):
     premium_intent: YesNoNotSure = YesNoNotSure.NOT_SURE
 
 
+class ProcessingChoice(BaseModel):
+    """Processing times the student picked; None = use the catalog default (the conservative maximum)."""
+
+    school_business_days: int | None = None  # T_s
+    uscis_standard_days: int | None = None  # T_u
+    uscis_premium_business_days: int | None = None  # T_u with premium processing
+
+
 class Profile(BaseModel):
     email: str
     school: School
@@ -224,6 +233,7 @@ class Profile(BaseModel):
     stage: Stage | None
     stage_dates: StageDates
     offer: Offer | None
+    processing: ProcessingChoice = ProcessingChoice()
     policy_version: str
     policy_last_reviewed: date | None
 
@@ -311,6 +321,21 @@ class PlanTask(BaseModel):
     node_ids: list[str]  # Timeline nodes this task owns
 
 
+class ProcessingTime(BaseModel):
+    """One processing time the student can adjust on the Timeline, and the value the plan used."""
+
+    id: str  # matches the ProcessingChoice field: school_business_days | uscis_standard_days | ...
+    label: str
+    min: int
+    max: int
+    default: int
+    unit: str  # calendar_days | business_days
+    chosen: int | None  # None until the student picks
+    used: int  # chosen, else default
+    note: str | None
+    source_ids: list[str]
+
+
 class Plan(BaseModel):
     plan_id: str
     version: int
@@ -323,6 +348,7 @@ class Plan(BaseModel):
     too_early: bool
     nodes: list[Node]
     risk_labels: list[Risk]
+    processing: list[ProcessingTime]
     warnings: list[str]
     tasks: list[PlanTask]
 

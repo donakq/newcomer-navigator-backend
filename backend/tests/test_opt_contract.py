@@ -331,3 +331,51 @@ def test_recording_a_date_on_a_task_applies_that_stage(client):
     client.patch("/api/me/tasks/T03", json={"status": "COMPLETED", "dso_rec_date": "2027-03-20"}, headers=headers)
     tasks = {t["id"]: t["status"] for t in client.get("/api/me/opt-plan", headers=headers).json()["tasks"]}
     assert tasks["T02"] == "COMPLETED"  # the OPT I-20 arrived, so the request is done
+
+
+# --- Processing times the student picks (reviewed UW policy, 2026-11-16) ---
+
+
+def test_plan_shows_processing_ranges_with_conservative_defaults(client, auth):
+    plan = client.get("/api/me/opt-plan", headers=auth).json()
+    times = {p["id"]: p for p in plan["processing"]}
+    assert (times["uscis_standard_days"]["min"], times["uscis_standard_days"]["max"]) == (90, 150)
+    assert times["uscis_standard_days"]["used"] == 150 and times["uscis_standard_days"]["chosen"] is None
+    assert times["school_business_days"]["unit"] == "business_days"
+    assert times["uscis_premium_business_days"]["used"] == 30
+
+
+def test_student_picks_processing_time_and_plan_follows(client, auth):
+    before = {n["id"]: n for n in client.get("/api/me/opt-plan", headers=auth).json()["nodes"]}
+    resp = client.put("/api/me/processing-times", json={"uscis_standard_days": 90}, headers=auth)
+    assert resp.status_code == 200
+    plan = client.get("/api/me/opt-plan", headers=auth).json()
+    after = {n["id"]: n for n in plan["nodes"]}
+    assert {p["id"]: p["used"] for p in plan["processing"]}["uscis_standard_days"] == 90
+    assert after["N3"]["date"] > before["N3"]["date"]  # shorter wait -> file later
+
+
+def test_processing_time_outside_range_rejected(client, auth):
+    resp = client.put("/api/me/processing-times", json={"school_business_days": 10}, headers=auth)
+    assert resp.status_code == 422
+    assert resp.json()["error"]["code"] == "out_of_range"
+
+
+def test_plan_has_uw_school_request_deadline(client, auth):
+    nodes = {n["id"]: n for n in client.get("/api/me/opt-plan", headers=auth).json()["nodes"]}
+    assert nodes["N1d"]["date"] == "2027-07-21"  # P + 40
+    tasks = {t["id"]: t for t in client.get("/api/me/opt-plan", headers=auth).json()["tasks"]}
+    assert tasks["T02"]["deadline_at"] == "2027-07-21"
+
+
+def test_issue_date_only_flags_unconfirmed_sevis_date(client, auth):
+    client.put("/api/me/status", json={"stage": "I20_REQUESTED", "i20_issue_date": "2027-03-20"}, headers=auth)
+    plan = client.get("/api/me/opt-plan", headers=auth).json()
+    assert "SEVIS_DATE_UNCONFIRMED" in plan["risk_labels"]
+
+
+def test_office_has_reviewed_contact_details(client):
+    office = client.get("/api/schools/uw/office").json()
+    assert office["preferred_channel"] == "FORM"
+    assert office["advising_form_url"] == "https://iss.washington.edu/email/"
+    assert "3–5 business days" in office["notes"]

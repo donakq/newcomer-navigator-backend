@@ -19,9 +19,9 @@ P = date(2027, 6, 11)  # PRD 6.4 example values
 S = date(2027, 7, 12)
 R = date(2027, 3, 20)
 PARAMS = TimelineParams(
-    t_school=14,
-    t_uscis_standard=90,
-    t_uscis_premium=30,
+    t_school=14,  # business days
+    t_uscis_standard=90,  # calendar days
+    t_uscis_premium=30,  # business days
     buffer=14,
     school_window_open=date(2027, 2, 1),
 )
@@ -44,7 +44,7 @@ def test_offer_matches_prd_example():
     res = compute_timeline(offer(dso_rec=R), PARAMS)
     assert res.node("N2").date == date(2027, 3, 20)
     assert res.node("N3").date == date(2027, 3, 30)
-    assert res.node("N1").date == date(2027, 3, 16)
+    assert res.node("N1").date == date(2027, 3, 10)  # N3 - 14 business days (PRD 6.4 used calendar days: 03-16)
     assert res.node("N1b").date == R  # once R is entered it wins
     assert res.node("N4").date == date(2027, 4, 19)
     assert res.node("N5").date == S
@@ -99,19 +99,20 @@ def test_n1_not_earlier_than_school_window():
 def test_n1_unconfirmed_without_school_window():
     params = PARAMS.model_copy(update={"school_window_open": None})
     res = compute_timeline(offer(dso_rec=R), params)
-    assert res.node("N1").date == date(2027, 3, 16)
+    assert res.node("N1").date == date(2027, 3, 10)
     assert res.node("N1").date_state == DateState.PARTIAL
 
 
 def test_n1b_uses_actual_request_date_until_r_is_known():
     res = compute_timeline(offer(i20_request=date(2027, 3, 1)), PARAMS)
-    assert res.node("N1b").date == date(2027, 3, 15)
+    assert res.node("N1b").date == date(2027, 3, 19)  # + 14 business days
     assert res.node("N1b").due_type == DueType.ESTIMATE
 
 
 def test_premium_processing_shortens_uscis_time():
     res = compute_timeline(offer(dso_rec=R, premium=True), PARAMS)
-    assert res.node("N3").date == date(2027, 5, 29)  # S - 30 - 14
+    # (S - 14) - 30 business days, skipping Juneteenth (observed 6/18) and Memorial Day
+    assert res.node("N3").date == date(2027, 5, 13)
 
 
 def test_n6_and_n7_follow_actual_filing_date():
@@ -125,7 +126,7 @@ def test_n6_and_n7_follow_actual_filing_date():
 
 def test_no_offer_before_window_opens():
     res = compute_timeline(no_offer(), PARAMS)
-    assert res.node("N1").date == date(2027, 2, 27)  # (P - 90) - T_s
+    assert res.node("N1").date == date(2027, 2, 23)  # (P - 90) - 14 business days
     assert res.node("N2").date == date(2027, 3, 13)
     assert res.node("N3").date == date(2027, 3, 13)
     assert res.node("N4").date == date(2027, 8, 10)
@@ -243,3 +244,62 @@ def test_after_filing_n5_is_the_start_date_on_the_i765():
     )
     assert res.node("N5").date == filed_start
     assert res.node("N7").date == max(filed_start, date(2027, 6, 23))
+
+
+# --- Reviewed UW policy (2026-11-16): business days, school I-20 deadline, SEVIS vs I-20 issue date ---
+
+UW_DEADLINE = date(2027, 7, 21)  # P + 40 calendar days
+UW = PARAMS.model_copy(update={"school_request_deadline": UW_DEADLINE})
+
+
+def test_school_request_deadline_node():
+    res = compute_timeline(offer(dso_rec=R), UW)
+    n1d = res.node("N1d")
+    assert n1d.date == UW_DEADLINE
+    assert n1d.due_type == DueType.SCHOOL
+
+
+def test_no_school_deadline_node_without_policy_value():
+    res = compute_timeline(offer(dso_rec=R), PARAMS)
+    assert "N1d" not in [n.id for n in res.nodes]
+
+
+def test_n1_never_after_school_request_deadline():
+    res = compute_timeline(offer(offer_start=date(2027, 12, 1)), UW)
+    assert res.node("N1").date == UW_DEADLINE
+
+
+def test_at_risk_when_school_deadline_passed_and_i20_not_requested():
+    res = compute_timeline(no_offer(today=date(2027, 7, 22)), UW)
+    assert Risk.AT_RISK in res.risks
+
+
+def test_not_at_risk_after_school_deadline_once_i20_requested():
+    res = compute_timeline(no_offer(today=date(2027, 7, 22), i20_request=date(2027, 7, 1)), UW)
+    assert Risk.AT_RISK not in res.risks
+
+
+def test_issue_date_stands_in_for_sevis_date_with_warning():
+    issued = date(2027, 3, 20)
+    res = compute_timeline(offer(i20_issue=issued), PARAMS)
+    assert res.node("N2").date == issued
+    assert res.node("N4").date == date(2027, 4, 19)  # issue date + 30
+    assert res.node("N4").date_state == DateState.PARTIAL
+    assert Risk.SEVIS_DATE_UNCONFIRMED in res.risks
+
+
+def test_sevis_date_wins_over_issue_date():
+    res = compute_timeline(offer(dso_rec=date(2027, 3, 18), i20_issue=date(2027, 3, 20)), PARAMS)
+    assert res.node("N4").date == date(2027, 4, 17)
+    assert res.node("N4").date_state == DateState.USER_CONFIRMED
+    assert Risk.SEVIS_DATE_UNCONFIRMED not in res.risks
+
+
+def test_i20_arrival_is_the_issue_date_when_known():
+    res = compute_timeline(offer(dso_rec=date(2027, 3, 18), i20_issue=date(2027, 3, 20)), PARAMS)
+    assert res.node("N1b").date == date(2027, 3, 20)
+
+
+def test_premium_ead_estimate_uses_business_days():
+    res = compute_timeline(offer(dso_rec=R, premium=True, uscis_receipt=date(2027, 3, 1)), PARAMS)
+    assert res.node("N6").date == date(2027, 4, 12)  # 3/1 + 30 business days

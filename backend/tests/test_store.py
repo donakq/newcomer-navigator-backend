@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.mock.opt_demo import demo_profile
-from app.schemas.opt import TaskStatus
+from app.schemas.opt import ProcessingChoice, TaskStatus
 from app.store.sql import Base, SessionRow, SqlStore
 
 
@@ -16,7 +16,7 @@ def test_data_survives_restart(tmp_path):
     first = SqlStore(url)
     token, _ = first.login("persist@uw.edu", "America/Los_Angeles")
     state = first.state_for(token)
-    state.profile = demo_profile()
+    state.profile = demo_profile().model_copy(update={"processing": ProcessingChoice(uscis_standard_days=120)})
     state.task_statuses = {"T01": TaskStatus.COMPLETED}
     first.save(state)
     first.engine.dispose()
@@ -26,6 +26,7 @@ def test_data_survives_restart(tmp_path):
     assert again.profile.program_end_date == date(2027, 6, 11)
     assert again.profile.offer.offer_start_date == date(2027, 7, 12)
     assert again.task_statuses == {"T01": TaskStatus.COMPLETED}
+    assert again.profile.processing.uscis_standard_days == 120
 
 
 def test_rejected_request_saves_nothing(client, auth):
@@ -50,7 +51,7 @@ def test_delete_user_removes_every_row(store):
         pytest.skip("checks database tables")
     token, _ = store.login("bye@uw.edu", "America/Los_Angeles")
     state = store.state_for(token)
-    state.profile = demo_profile()
+    state.profile = demo_profile().model_copy(update={"processing": ProcessingChoice(school_business_days=20)})
     state.task_statuses = {"T01": TaskStatus.COMPLETED}
     store.save(state)
     store.delete_user(token)

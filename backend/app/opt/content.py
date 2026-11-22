@@ -1,7 +1,8 @@
 """OPT content data (Data Spec section 2): YAML under backend/catalog/, validated at startup.
 
 Content is curated by the team and signed off by the policy reviewer. A broken file fails the deploy.
-Until sign-off the Policy Pack status is REVIEW_REQUIRED; that loads (mock phase) but adds a warning.
+A Policy Pack that is not REVIEWED_ACTIVE still loads but adds a warning; so does an active pack
+with no named reviewer, and every open issue the pack lists.
 """
 
 from datetime import date, timedelta
@@ -10,16 +11,16 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, PositiveInt, ValidationError
+from pydantic import BaseModel, PositiveInt, ValidationError, model_validator
 
 from app.opt.timeline import DueType
 from app.schemas.opt import Office, PolicyStatus, PreferredChannel, SupportStatus
 
 CONTENT_DIR = Path(__file__).resolve().parent.parent.parent / "catalog"
 
-NODE_IDS = {"N1", "N1b", "N2", "N3", "N4", "N5", "N6", "N7"}
+NODE_IDS = {"N1", "N1b", "N1d", "N2", "N3", "N4", "N5", "N6", "N7"}
 STAGE_DATE_FIELDS = {"i20_request_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "requested_start_date"}
-FIELD_HINT_KEYS = {"program_end_date", "dso_rec_date", "uscis_receipt_date", "i20_request_date"}
+FIELD_HINT_KEYS = {"program_end_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "i20_request_date"}
 
 
 class SchoolEntry(BaseModel):
@@ -34,9 +35,27 @@ class SchoolWindow(BaseModel):
     source_id: str
 
 
+class ProcessingRange(BaseModel):
+    """A processing time the student picks within [min, max]; default is used until they do."""
+
+    min: PositiveInt
+    max: PositiveInt
+    default: PositiveInt
+    unit: Literal["calendar_days", "business_days"]
+    note: str | None = None  # shown next to the range, e.g. "UW ISS estimate"
+    source_ids: list[str] = []
+
+    @model_validator(mode="after")
+    def _in_range(self):
+        if not self.min <= self.default <= self.max:
+            raise ValueError(f"default {self.default} is outside {self.min}-{self.max}")
+        return self
+
+
 class PolicyTimeline(BaseModel):
-    t_school_days: PositiveInt
+    t_school: ProcessingRange  # T_s
     school_windows: list[SchoolWindow] = []
+    i20_request_deadline_days_after_end: PositiveInt | None = None  # school's own deadline, calendar days
     source_ids: list[str]
 
 
@@ -51,6 +70,11 @@ class PolicyPack(BaseModel):
     office: Office
     module_links: dict[str, str | None]
     field_hints: dict[str, str]
+    open_issues: list[str] = []  # unresolved policy questions, shown on every plan
+
+    def school_request_deadline(self, program_end: date) -> date | None:
+        days = self.timeline.i20_request_deadline_days_after_end
+        return program_end + timedelta(days=days) if days else None
 
     def school_window_open(self, program_end: date) -> date | None:
         """W_s for a student: the latest opening date among the school's window rules."""
@@ -68,8 +92,8 @@ class FederalRules(BaseModel):
 
 
 class FederalProcessing(BaseModel):
-    t_uscis_standard_days: PositiveInt
-    t_uscis_premium_days: PositiveInt
+    uscis_standard: ProcessingRange  # T_u
+    uscis_premium: ProcessingRange  # T_u with premium processing
     source_ids: list[str]
 
 
@@ -117,15 +141,18 @@ class LangText(BaseModel):
 
 
 class DraftTemplate(BaseModel):
-    question_types: list[str]
+    question_types: dict[str, str]  # code -> label shown to the student
     structure: list[str]
     placeholders: list[str]
+    example_en: str | None = None  # reference email for the AI
 
 
 class Templates(BaseModel):
     refusal: LangText
     unverifiable: LangText
     unsupported_opt: LangText
+    case_judgment: LangText  # "will USCIS approve me?"
+    no_evasion: LangText  # requests to hide or misreport information
     disclaimer: LangText
     dso_draft: DraftTemplate
 
@@ -135,6 +162,8 @@ class GlossaryEntry(BaseModel):
     full_name: str | None
     definition_en: str | None
     definition_zh: str | None
+    # EXPLAIN: AI explains it; DEFINE_AND_REFER: one-line definition, then refer to the school office
+    ai_scope: Literal["EXPLAIN", "DEFINE_AND_REFER", "REFUSE"] = "EXPLAIN"
 
 
 class OptContent(BaseModel):
@@ -182,8 +211,8 @@ def load_content(root: Path) -> OptContent:
     # Policy Pack (Data Spec 2.2)
     if policy.school_id not in {s.id for s in schools}:
         raise ValueError(f"policy/uw.yaml: unknown school_id {policy.school_id!r}")
-    if policy.status == PolicyStatus.REVIEWED_ACTIVE and not (policy.reviewed_at and policy.reviewer):
-        raise ValueError("policy/uw.yaml: REVIEWED_ACTIVE requires reviewed_at and reviewer")
+    if policy.status == PolicyStatus.REVIEWED_ACTIVE and not policy.reviewed_at:
+        raise ValueError("policy/uw.yaml: REVIEWED_ACTIVE requires reviewed_at")
     office = policy.office
     if office.preferred_channel in (PreferredChannel.FORM, PreferredChannel.PORTAL) and not office.advising_form_url:
         raise ValueError("policy/uw.yaml: preferred_channel FORM/PORTAL requires advising_form_url")
@@ -192,7 +221,10 @@ def load_content(root: Path) -> OptContent:
         raise ValueError(f"policy/uw.yaml: field_hints missing {missing_hints}")
     _check_sources(policy.timeline.source_ids, sources, "policy/uw.yaml timeline")
     _check_sources([w.source_id for w in policy.timeline.school_windows], sources, "policy/uw.yaml school_windows")
-    _check_sources(federal.rules.source_ids + federal.processing.source_ids, sources, "federal.yaml")
+    _check_sources(policy.timeline.t_school.source_ids, sources, "policy/uw.yaml t_school")
+    proc = federal.processing
+    _check_sources(federal.rules.source_ids + proc.source_ids + proc.uscis_standard.source_ids
+                   + proc.uscis_premium.source_ids, sources, "federal.yaml")
 
     # Task templates (Data Spec 2.5)
     tasks = {t.id: t for t in task_list}
@@ -216,8 +248,11 @@ def load_content(root: Path) -> OptContent:
     warnings = []
     if policy.status != PolicyStatus.REVIEWED_ACTIVE:
         warnings.append(f"UW Policy Pack is {policy.status.value}: dates and contact details are not verified.")
-    if federal.reviewer is None:
+    elif policy.reviewer is None:
+        warnings.append("UW Policy Pack has no named reviewer.")
+    if federal.reviewed_at is None:
         warnings.append("Federal processing times are not reviewed.")
+    warnings.extend(policy.open_issues)
 
     return OptContent(
         schools=schools, policy=policy, federal=federal, sources=sources, tasks=tasks,

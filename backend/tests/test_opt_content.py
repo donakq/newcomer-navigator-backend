@@ -27,7 +27,10 @@ def test_repo_content_loads():
     assert [s.id for s in content.schools][0] == "uw"
     assert content.policy.office.office_display_name == "UW ISS"
     assert list(content.tasks) == ["T01", "T02", "T03", "T04", "T05", "T06"]
-    assert content.federal.processing.t_uscis_standard_days == 90
+    assert content.policy.status.value == "REVIEWED_ACTIVE"
+    assert content.federal.processing.uscis_standard.default == 150  # conservative max until the student picks
+    assert content.policy.timeline.t_school.unit == "business_days"
+    assert content.policy.office.phone
     assert "task_T02" in content.chips
     assert content.templates.refusal.en
 
@@ -60,14 +63,15 @@ def test_unknown_complete_requires_field_rejected(content_copy):
         load_content(content_copy)
 
 
-def test_reviewed_active_requires_reviewer(content_copy):
-    edit(content_copy / "policy" / "uw.yaml", lambda d: d.update(status="REVIEWED_ACTIVE"))
-    with pytest.raises(ValueError, match="reviewer"):
+def test_reviewed_active_requires_reviewed_at(content_copy):
+    edit(content_copy / "policy" / "uw.yaml", lambda d: d.update(status="REVIEWED_ACTIVE", reviewed_at=None))
+    with pytest.raises(ValueError, match="reviewed_at"):
         load_content(content_copy)
 
 
 def test_form_channel_requires_form_url(content_copy):
-    edit(content_copy / "policy" / "uw.yaml", lambda d: d["office"].update(preferred_channel="FORM"))
+    edit(content_copy / "policy" / "uw.yaml",
+         lambda d: d["office"].update(preferred_channel="FORM", advising_form_url=None))
     with pytest.raises(ValueError, match="advising_form_url"):
         load_content(content_copy)
 
@@ -88,3 +92,27 @@ def test_school_window_open_date():
     from datetime import date
 
     assert get_content().policy.school_window_open(date(2027, 6, 11)) == date(2027, 3, 13)
+
+
+def test_active_pack_without_reviewer_warns():
+    assert "UW Policy Pack has no named reviewer." in get_content().warnings
+
+
+def test_open_policy_issues_become_warnings():
+    assert any("Duration of Status" in w for w in get_content().warnings)
+
+
+def test_processing_default_outside_range_rejected(content_copy):
+    edit(content_copy / "federal.yaml", lambda d: d["processing"]["uscis_standard"].update(default=200))
+    with pytest.raises(ValueError, match="outside"):
+        load_content(content_copy)
+
+
+def test_every_source_has_url_and_review_date():
+    for s in get_content().sources.values():
+        assert s.url and s.last_reviewed, s.id
+
+
+def test_glossary_has_english_for_reviewed_terms():
+    missing = [g.term for g in get_content().glossary if not g.definition_en and g.term != "F-1"]
+    assert missing == []

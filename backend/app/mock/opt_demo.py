@@ -32,6 +32,7 @@ from app.schemas.opt import (
     OptType,
     Plan,
     PlanTask,
+    ProcessingTime,
     Profile,
     School,
     Source,
@@ -111,14 +112,41 @@ def demo_profile() -> Profile:
     )
 
 
+PROCESSING_LABELS = {
+    "school_business_days": "UW ISS processing of your OPT I-20",
+    "uscis_standard_days": "USCIS processing (standard)",
+    "uscis_premium_business_days": "USCIS processing (premium)",
+}
+
+
+def processing_times(profile: Profile) -> list[ProcessingTime]:
+    """Ranges from the catalog plus the student's picks; the plan uses each one's `used` value."""
+    content = get_content()
+    ranges = {
+        "school_business_days": content.policy.timeline.t_school,
+        "uscis_standard_days": content.federal.processing.uscis_standard,
+        "uscis_premium_business_days": content.federal.processing.uscis_premium,
+    }
+    out = []
+    for field, r in ranges.items():
+        chosen = getattr(profile.processing, field)
+        out.append(ProcessingTime(
+            id=field, label=PROCESSING_LABELS[field], min=r.min, max=r.max, default=r.default, unit=r.unit,
+            chosen=chosen, used=chosen if chosen is not None else r.default, note=r.note, source_ids=r.source_ids,
+        ))
+    return out
+
+
 def demo_params(profile: Profile) -> TimelineParams:
     content = get_content()
+    used = {p.id: p.used for p in processing_times(profile)}
     return TimelineParams(
-        t_school=content.policy.timeline.t_school_days,
-        t_uscis_standard=content.federal.processing.t_uscis_standard_days,
-        t_uscis_premium=content.federal.processing.t_uscis_premium_days,
+        t_school=used["school_business_days"],
+        t_uscis_standard=used["uscis_standard_days"],
+        t_uscis_premium=used["uscis_premium_business_days"],
         buffer=content.federal.buffer_days,
         school_window_open=content.policy.school_window_open(profile.program_end_date),
+        school_request_deadline=content.policy.school_request_deadline(profile.program_end_date),
     )
 
 
@@ -147,6 +175,7 @@ def _timeline(profile: Profile, today: date) -> TimelineResult:
             has_offer=offer.has_offer,
             offer_start=offer.offer_start_date,
             dso_rec=dates.dso_rec_date,
+            i20_issue=dates.i20_issue_date,
             i20_request=dates.i20_request_date,
             uscis_receipt=dates.uscis_receipt_date,
             requested_start=dates.requested_start_date,
@@ -210,6 +239,7 @@ def build_plan(profile: Profile, statuses: dict[str, TaskStatus] | None = None, 
         too_early=timeline.too_early,
         nodes=timeline.nodes,
         risk_labels=timeline.risks,
+        processing=processing_times(profile),
         warnings=["Mock data: one demo student, nothing is saved.", *get_content().warnings],
         tasks=build_tasks(timeline, statuses or {}, today),
     )

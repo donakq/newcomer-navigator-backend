@@ -34,7 +34,8 @@ Auth: `POST /api/auth/email/verify` returns a token; send it as `Authorization: 
 | PUT | `/api/me/opt-selection` | Select OPT | 422 `out_of_scope` |
 | PUT | `/api/me/status` | Stage + stage dates | 422 `missing_fields` |
 | PUT | `/api/me/offer` | Timeline inputs | 422 `missing_fields` |
-| POST | `/api/me/opt-plan/generate` | Generate plan: tasks T01–T06, nodes N1–N7, risk labels | — |
+| PUT | `/api/me/processing-times` | Student's own estimates for UW I-20, USCIS standard and premium processing; each must be inside the range the plan shows | 422 `out_of_range` |
+| POST | `/api/me/opt-plan/generate` | Generate plan: tasks T01–T06, nodes N1–N7 (+ N1d, UW I-20 request deadline), risk labels, processing ranges | — |
 | GET | `/api/me/opt-plan` | Current plan (Checklist and Timeline read the same data) | — |
 | GET / PATCH | `/api/me/tasks/{id}` | Task details / update status or dates | 404, 409 `task_blocked`, 422 `missing_fields` (T03 needs `dso_rec_date`, T05 needs `uscis_receipt_date` to complete) |
 | POST | `/api/me/dso-drafts` | Email draft for the school office (never sent) | 422 |

@@ -1,50 +1,56 @@
-# C4 Official sources (Data Spec 2.4 / PRD Appendix A). MOCK: every url is TODO(reviewer).
+# C4 Official sources (Data Spec 2.4 / PRD Appendix A). Source: "OPT Timeline Policy Reviewed", section E.
 # A source with url or last_reviewed missing must not back a definitive answer.
 - id: uw-post-completion-opt
   title: UW — Post-Completion OPT
-  url: null
+  url: https://iss.washington.edu/f1-employment/post-completion/
   publisher: UW_ISS
   scope: [T01, T02, T03, school_process]
-  last_reviewed: null
+  last_reviewed: 2026-11-16
 - id: uw-opt-faq
   title: UW — OPT FAQ
-  url: null
+  url: https://iss.washington.edu/f1-employment/post-completion/frequently-asked-questions-opt/
   publisher: UW_ISS
-  scope: [T03, opt_rules]
-  last_reviewed: null
+  scope: [T03, T06, opt_rules]
+  last_reviewed: 2026-11-16
+- id: uw-duration-of-status
+  title: UW — Duration of Status changes
+  url: https://iss.washington.edu/duration-of-status/
+  publisher: UW_ISS
+  scope: [opt_rules]
+  last_reviewed: 2026-11-16
 - id: uscis-i765
   title: USCIS — Form I-765
-  url: null
+  url: https://www.uscis.gov/i-765
   publisher: USCIS
   scope: [T04, T05, form_help]
-  last_reviewed: null
+  last_reviewed: 2026-11-16
 - id: uscis-case-status
-  title: USCIS Case Status Online
-  url: null
+  title: USCIS — Case Status Online
+  url: https://egov.uscis.gov/
   publisher: USCIS
   scope: [T06, tracking]
-  last_reviewed: null
+  last_reviewed: 2026-11-16
 - id: dhs-sitc-opt
   title: DHS Study in the States — OPT
-  url: null
+  url: https://studyinthestates.dhs.gov/students/work/optional-practical-training
   publisher: DHS
   scope: [opt_rules]
-  last_reviewed: null
+  last_reviewed: 2026-11-15
 - id: cbp-i94
   title: CBP — I-94
-  url: null
+  url: https://i94.cbp.dhs.gov/
   publisher: CBP
   scope: [T04, documents]
-  last_reviewed: null
+  last_reviewed: 2026-11-15
 - id: uscis-processing-times
   title: USCIS — Processing Times
-  url: null
+  url: https://egov.uscis.gov/processing-times/
   publisher: USCIS
-  scope: [T06, tracking]
-  last_reviewed: null
+  scope: [processing_times]
+  last_reviewed: 2026-11-16
 - id: uscis-premium-processing
   title: USCIS — Premium Processing
-  url: null
+  url: https://www.uscis.gov/forms/all-forms/how-do-i-request-premium-processing
   publisher: USCIS
   scope: [T04, start_date]
-  last_reviewed: null
+  last_reviewed: 2026-11-16

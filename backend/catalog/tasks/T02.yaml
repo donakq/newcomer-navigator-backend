@@ -1,19 +1,28 @@
-# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+# C5 Task template (Data Spec 2.5 / PRD 5.2). Content: "OPT Timeline Policy Reviewed", section F (2026-11-16).
 id: T02
 policy_pack_id: uw-opt
 title: Request your OPT I-20 from UW ISS
 order: 2
 prerequisites: []
 due_type: RECOMMENDED              # PRD: SCHOOL / RECOMMENDED
-timeline_node: N1
-deadline_node: null
+timeline_node: N1                  # recommended request date
+deadline_node: N1d                 # UW's own request deadline, P + 40
 complete_requires: []
 waiting_records: i20_request_date
 steps:
-  - "Submit your OPT request the way UW ISS requires (system and forms per the Policy Pack)."
-  - "Submit inside the school's request window."
-  - "Wait for UW ISS to review it."
+  - "Submit your Post-Completion OPT I-20 request through UW MyISSS."
+  - "Check the UW ISS request window before submitting your request."
+  - "Monitor your MyISSS request and respond to any requests for additional information."
+  - "Wait for UW ISS to issue your OPT-recommended Form I-20."
 documents:
-  - name: Per UW ISS requirements
-    where_to_get: UW Policy Pack
+  - name: Current Form I-20
+    where_to_get: UW ISS
+  - name: Program End Date
+    where_to_get: Program of Study section of your Form I-20
+  - name: Requested OPT Start Date
+    where_to_get: Select within the permitted post-completion OPT start-date window
+  - name: ISS Post-Completion Training fee ($85) confirmation
+    where_to_get: UW ISS
+  - name: OPT I-20 Request
+    where_to_get: UW MyISSS
 source_ids: [uw-post-completion-opt]
