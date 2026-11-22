@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Response
 
 from app.deps import current_session
 from app.errors import ApiError
-from app.mock import opt_assistant
+from app.mock import opt_assistant, opt_demo
 from app.mock.opt_demo import build_plan, documents, graduation_banner, modules, policy_version, school, source
 from app.opt.content import TaskTemplate, get_content
 from app.opt.timeline import StartPreference
@@ -28,6 +28,7 @@ from app.schemas.opt import (
     OptSummary,
     OptType,
     Plan,
+    ProcessingChoice,
     Profile,
     ProfilePatch,
     ProfilePatchResponse,
@@ -196,6 +197,20 @@ def offer(body: Offer, state: UserState = Depends(current_state)) -> Offer:
             _require(body, ["preferred_start_date"])
     state.profile = profile.model_copy(update={"offer": body})
     _plan(state)  # reject inputs the timeline engine can't use, before keeping them
+    _commit(state)
+    return body
+
+
+@router.put("/processing-times", response_model=ProcessingChoice)
+def processing_times(body: ProcessingChoice, state: UserState = Depends(current_state)) -> ProcessingChoice:
+    """The student's own processing-time estimates, each within the official range shown on the Timeline."""
+    profile = _profile(state)
+    ranges = {p.id: p for p in opt_demo.processing_times(profile)}
+    for field, value in body.model_dump(exclude_none=True).items():
+        r = ranges[field]
+        if not r.min <= value <= r.max:
+            raise ApiError(422, "out_of_range", f"{field} must be between {r.min} and {r.max}")
+    state.profile = profile.model_copy(update={"processing": body})
     _commit(state)
     return body
 

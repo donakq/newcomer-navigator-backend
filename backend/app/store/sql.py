@@ -13,7 +13,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 from sqlalchemy.pool import StaticPool
 
 from app.opt.content import get_content
-from app.schemas.opt import Offer, OptSelection, Profile, School, StageDates, TaskStatus
+from app.schemas.opt import Offer, OptSelection, ProcessingChoice, Profile, School, StageDates, TaskStatus
 from app.store.base import SESSION_DAYS, UserState, hash_token, new_token
 
 
@@ -72,6 +72,15 @@ class OfferRow(Base):  # U5
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
+class ProcessingRow(Base):  # student-picked processing times; its own table so create_all adds it to live DBs
+    __tablename__ = "processing_choices"
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    school_business_days: Mapped[int | None] = mapped_column(Integer)
+    uscis_standard_days: Mapped[int | None] = mapped_column(Integer)
+    uscis_premium_business_days: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class TaskRow(Base):  # U7: only the statuses the student set; dates are recomputed from the profile
     __tablename__ = "user_tasks"
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
@@ -81,6 +90,7 @@ class TaskRow(Base):  # U7: only the statuses the student set; dates are recompu
 
 
 PROFILE_DATE_FIELDS = ("i20_request_date", "dso_rec_date", "i20_issue_date", "uscis_receipt_date", "requested_start_date")
+PROCESSING_FIELDS = tuple(ProcessingChoice.model_fields)
 OFFER_FIELDS = ("has_offer", "offer_start_date", "start_flexible", "start_preference", "preferred_start_date",
                 "premium_intent")
 
@@ -132,7 +142,7 @@ class SqlStore:
         with Session(self.engine) as db, db.begin():
             user_id = self._user_id(db, token)
             if user_id:
-                for table in (TaskRow, OfferRow, ProfileRow, SessionRow):
+                for table in (TaskRow, ProcessingRow, OfferRow, ProfileRow, SessionRow):
                     db.execute(delete(table).where(table.user_id == user_id))
                 db.execute(delete(UserRow).where(UserRow.id == user_id))
 
@@ -146,12 +156,13 @@ class SqlStore:
                 return None
             profile_row = db.get(ProfileRow, user.id)
             offer_row = db.get(OfferRow, user.id)
+            processing_row = db.get(ProcessingRow, user.id)
             tasks = db.scalars(select(TaskRow).where(TaskRow.user_id == user.id)).all()
             return UserState(
                 user_id=user.id,
                 email=user.email,
                 timezone=user.timezone,
-                profile=_to_profile(user, profile_row, offer_row) if profile_row else None,
+                profile=_to_profile(user, profile_row, offer_row, processing_row) if profile_row else None,
                 task_statuses={t.template_id: TaskStatus(t.status) for t in tasks},
                 plan_version=user.plan_version,
             )
@@ -168,6 +179,7 @@ class SqlStore:
                        for t, s in state.task_statuses.items())
             p = state.profile
             if p is None:
+                db.execute(delete(ProcessingRow).where(ProcessingRow.user_id == state.user_id))
                 db.execute(delete(OfferRow).where(OfferRow.user_id == state.user_id))
                 db.execute(delete(ProfileRow).where(ProfileRow.user_id == state.user_id))
                 return
@@ -181,6 +193,7 @@ class SqlStore:
                 stage=p.stage.value if p.stage else None,
                 **{f: getattr(p.stage_dates, f) for f in PROFILE_DATE_FIELDS},
             ))
+            db.merge(ProcessingRow(user_id=state.user_id, **p.processing.model_dump()))
             if p.offer is None:
                 db.execute(delete(OfferRow).where(OfferRow.user_id == state.user_id))
             else:
@@ -191,7 +204,8 @@ class SqlStore:
                 }))
 
 
-def _to_profile(user: UserRow, row: ProfileRow, offer: OfferRow | None) -> Profile:
+def _to_profile(user: UserRow, row: ProfileRow, offer: OfferRow | None,
+                processing: ProcessingRow | None) -> Profile:
     content = get_content()
     school = next(s for s in content.schools if s.id == row.school_id)
     selection = None
@@ -208,6 +222,8 @@ def _to_profile(user: UserRow, row: ProfileRow, offer: OfferRow | None) -> Profi
         stage=row.stage,
         stage_dates=StageDates(**{f: getattr(row, f) for f in PROFILE_DATE_FIELDS}),
         offer=Offer(**{f: getattr(offer, f) for f in OFFER_FIELDS}) if offer else None,
+        processing=ProcessingChoice(**{f: getattr(processing, f) for f in PROCESSING_FIELDS}) if processing
+        else ProcessingChoice(),
         # Policy info always reflects the current catalog, not what it was when saved.
         policy_version=f"{content.policy.id}-v{content.policy.version}",
         policy_last_reviewed=content.policy.reviewed_at,

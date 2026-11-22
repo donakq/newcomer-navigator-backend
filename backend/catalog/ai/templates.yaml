@@ -1,17 +1,52 @@
-# C7 + C9 AI text templates (Data Spec 2.6). Placeholders: {topic}, {office_display_name}.
+# C7 + C9 AI text templates (Data Spec 2.6). Source: "OPT Timeline Policy Reviewed", G2 + G4.
+# Placeholders: {topic}, {office_display_name} (the PDF's {office}).
 refusal:
   en: "I can only help with OPT applications in this app. For questions about {topic}, please contact {office_display_name} or visit its website."
-  zh: "这个应用只能回答 OPT 申请相关的问题。关于{topic}，请联系 {office_display_name} 或访问其官网。"   # TODO(PM)
-unverifiable:
-  en: "I can't verify this for your case. Please confirm with {office_display_name}."
-  zh: null                         # TODO(PM)
+  zh: "本应用目前只提供 OPT 申请相关帮助。关于{topic}的问题，请联系{office_display_name}或访问其官方网站。"
 unsupported_opt:
-  en: null                         # TODO(PM)
-  zh: null                         # TODO(PM)
+  en: "This app currently supports initial Post-Completion OPT only. For questions about other OPT types, please contact {office_display_name}."
+  zh: "本应用目前仅支持首次毕业后 OPT 申请。如需了解其他 OPT 类型，请联系{office_display_name}。"
+unverifiable:
+  en: "I can't verify this information for your specific case. Please confirm with {office_display_name} before taking action."
+  zh: "我目前无法核实这项信息是否适用于你的具体情况。请先向{office_display_name}确认，再采取行动。"
+case_judgment:
+  # The PDF's English line dropped {office}; restored to match the Chinese.
+  en: "I can't predict whether USCIS will approve or deny your application. Please review the official requirements and contact {office_display_name} for guidance about your circumstances."
+  zh: "我无法预测 USCIS 是否会批准或拒绝你的申请。请查看官方申请要求，并联系{office_display_name}咨询你的具体情况。"
+no_evasion:
+  # The PDF's English line dropped {office}; restored to match the Chinese.
+  en: "I can't help you hide or misreport information to immigration authorities. Please report accurate information and contact {office_display_name} if you need help correcting a record."
+  zh: "我不能帮助隐瞒或虚报移民相关信息。请如实申报；如果需要更正记录，请联系{office_display_name}。"
 disclaimer:
-  en: null                         # TODO(PM)
-  zh: "本产品不提供法律建议，请以学校国际学生办公室和 USCIS 官方信息为准。"
+  en: "This timeline is for informational purposes only and is not legal advice. Dates are based on the information you provide and may require confirmation by UW ISS or USCIS."
+  zh: "本时间线仅供参考，不构成法律建议。日期根据你提供的信息计算，部分日期可能需要 UW ISS 或 USCIS 进一步确认。"
 dso_draft:
-  question_types: [CONFIRM_DATES, I20_STATUS, DOCUMENTS, RFE_OR_DENIAL, OTHER]
+  question_types:
+    CONFIRM_DATES: Confirm OPT Dates
+    I20_STATUS: OPT I-20 Status
+    DOCUMENTS: Required Documents
+    RFE_OR_DENIAL: USCIS Notice or Decision
+    OTHER: Other OPT Questions
   structure: [greeting, who_i_am, my_situation, question, what_i_tried, thanks]
   placeholders: ["[YOUR FULL NAME]", "[YOUR STUDENT ID]"]
+  example_en: |-
+    Dear UW ISS Team,
+
+    My name is [YOUR FULL NAME], and my UW Student ID is [YOUR STUDENT ID].
+
+    I am preparing my initial Post-Completion OPT application and would like to confirm a few important dates before submitting Form I-765 to USCIS.
+
+    My current Form I-20 lists my Program End Date as [PROGRAM END DATE]. I have [SUBMITTED / NOT YET SUBMITTED] my OPT I-20 request through MyISSS.
+
+    Could you please help me confirm the following?
+    1. Is my Program End Date correct for my OPT application?
+    2. What is the date my OPT recommendation was entered into SEVIS?
+    3. Is there anything else I should complete before filing Form I-765?
+
+    I have reviewed the UW ISS Post-Completion OPT instructions, but I would appreciate your guidance to make sure I am following the correct process.
+
+    Thank you for your time and assistance.
+
+    Best regards,
+    [YOUR FULL NAME]
+    UW Student ID: [YOUR STUDENT ID]

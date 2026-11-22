@@ -1,36 +1,53 @@
-# C2 UW Policy Pack (Data Spec 2.2). MOCK: placeholder values until the policy reviewer signs off.
+# C2 UW Policy Pack (Data Spec 2.2). Source: "OPT Timeline Policy Reviewed" (research 2026-11-15,
+# review addendum 2026-11-16). Scope: UW Seattle, initial Post-Completion OPT.
 id: uw-opt
 school_id: uw
-version: 1
-status: REVIEW_REQUIRED            # DRAFT | REVIEW_REQUIRED | REVIEWED_ACTIVE | RETIRED
-reviewed_at: null                  # TODO(reviewer)
-reviewer: null                     # TODO(reviewer)
+version: 2
+status: REVIEWED_ACTIVE            # DRAFT | REVIEW_REQUIRED | REVIEWED_ACTIVE | RETIRED
+reviewed_at: 2026-11-16
+reviewer: null                     # no named reviewer; the loader adds a warning
 
 timeline:
-  t_school_days: 14                # T_s   TODO(reviewer)
-  school_windows:                  # W_s
+  t_school:                        # T_s: UW ISS processing of the OPT I-20 request
+    min: 20
+    max: 28
+    default: 28                    # conservative until the student picks
+    unit: business_days
+    note: "UW ISS estimate: approximately 3 weeks. Not a guaranteed processing time."
+    source_ids: [uw-post-completion-opt]
+  school_windows:                  # W_s: earliest day to request the OPT I-20
     - rule: days_before_program_end
-      days: 90                     # TODO(reviewer)
+      days: 90                     # UW general guidance; see open_issues (UW OPT Calculator differs)
       source_id: uw-post-completion-opt
+  i20_request_deadline_days_after_end: 40   # UW's own I-20 request deadline (not a USCIS deadline), calendar days
   source_ids: [uw-post-completion-opt]
 
 office:
   office_display_name: UW ISS
-  contact_email: null              # TODO(reviewer)
-  phone: null                      # TODO(reviewer)
-  office_hours: null               # TODO(reviewer)
-  contact_page_url: null           # TODO(reviewer)
-  preferred_channel: EMAIL         # TODO(reviewer)
-  advising_form_url: null
+  contact_email: null              # no public direct email; use the Contact ISS form
+  phone: "+1 (206) 221-7857"
+  office_hours: "Business: Mon–Fri, 8:00 AM–5:00 PM PT. Front Desk & Phone: Mon–Thu, 10:00 AM–4:00 PM PT."
+  contact_page_url: https://iss.washington.edu/email/
+  preferred_channel: FORM
+  advising_form_url: https://iss.washington.edu/email/
+  notes: >-
+    Use the Contact ISS form for immigration advising questions and MyISSS for immigration-related
+    requests. Use your @uw.edu email and provide your UW Student ID. Allow 3–5 business days for a reply.
 
-module_links:                      # TODO(reviewer)
-  maintaining_status: null
-  health_insurance: null
-  travel: null
-  taxes: null
+module_links:
+  maintaining_status: https://iss.washington.edu/travel/in-the-us/
+  health_insurance: https://iss.washington.edu/campus-resources/health-insurance/
+  travel: https://iss.washington.edu/travel/travel-signatures/
+  taxes: https://iss.washington.edu/taxes/
 
-field_hints:                       # TODO(reviewer)
-  program_end_date: "Look at Program End Date on your I-20."
-  dso_rec_date: "On your OPT I-20, see the OPT recommendation section."
-  uscis_receipt_date: "On your Receipt Notice (Form I-797C), see Received Date."
-  i20_request_date: "The submission date in MyISSS."
+field_hints:
+  program_end_date: "Find the Program End Date on your current Form I-20."
+  dso_rec_date: "Confirm the date your DSO entered the OPT recommendation in SEVIS with your ISS advisor."
+  i20_issue_date: "Find the Date Issued next to the DSO signature on page 1 of your OPT I-20."
+  uscis_receipt_date: "Find Received Date on your Form I-797C receipt notice."
+  i20_request_date: "Check the submission date in MyISSS."
+
+open_issues:                       # from the 2026-11-16 review addendum; shown as plan warnings
+  - "UW school window: UW guidance says request the OPT I-20 from P−90 to P+40, but the UW OPT Calculator shows earlier dates for some cohorts. Needs UW ISS confirmation."
+  - "Weekend and holiday deadline extensions are not verified. Deadlines are not moved automatically."
+  - "F-1 Duration of Status changes (fixed I-94 dates from 2026-09-15; possible I-539 after 2027-03-18) may change the P+60 and grace-period rules. High-priority policy review."

@@ -1,16 +1,157 @@
-# C8 Glossary (Data Spec 2.6 / PRD Appendix B). TODO(PM): English definitions.
-- {term: F-1, full_name: F-1 student status, definition_en: null, definition_zh: 美国学生身份；本产品默认用户为 F-1 学生}
-- {term: OPT, full_name: Optional Practical Training, definition_en: null, definition_zh: F-1 学生在专业相关领域工作的许可}
-- {term: Post-Completion OPT, full_name: null, definition_en: null, definition_zh: 毕业后使用的 OPT，v1 唯一支持的类型}
-- {term: I-20, full_name: Certificate of Eligibility for Nonimmigrant Student Status, definition_en: null, definition_zh: 学校签发的 F-1 身份文件}
-- {term: Program End Date, full_name: null, definition_en: null, definition_zh: I-20 上的项目结束日期}
-- {term: DSO, full_name: Designated School Official, definition_en: null, definition_zh: 学校指定的国际学生官员，负责在 SEVIS 中推荐 OPT}
-- {term: SEVIS, full_name: Student and Exchange Visitor Information System, definition_en: null, definition_zh: 记录国际学生信息的政府系统}
-- {term: OPT I-20, full_name: null, definition_en: null, definition_zh: DSO 推荐 OPT 后学校签发的新 I-20，上面带有 OPT 推荐信息}
-- {term: USCIS, full_name: U.S. Citizenship and Immigration Services, definition_en: null, definition_zh: 美国移民局，负责审批 I-765}
-- {term: I-765, full_name: Application for Employment Authorization, definition_en: null, definition_zh: 向 USCIS 申请工作许可的表格；申请 OPT 就是递交这张表}
-- {term: I-94, full_name: Arrival/Departure Record, definition_en: null, definition_zh: 入境记录，申请材料之一}
-- {term: Receipt Notice, full_name: Form I-797C, definition_en: null, definition_zh: USCIS 收到申请后发出的收据通知，载有收到日期}
-- {term: Premium Processing, full_name: null, definition_en: null, definition_zh: 向 USCIS 加付费用换取更快处理的服务}
-- {term: RFE, full_name: Request for Evidence, definition_en: null, definition_zh: USCIS 要求补充材料的通知}
-- {term: EAD, full_name: Employment Authorization Document, definition_en: null, definition_zh: I-765 批准后寄来的工作许可卡，写明可工作的起止日期}
+# C8 Glossary (Data Spec 2.6 / PRD Appendix B). English: "OPT Timeline Policy Reviewed", G3 (2026-11-16).
+# Chinese and ai_scope: the team worksheet. F-1 has no English definition in the PDF yet.
+- term: F-1
+  full_name: F-1 student status
+  definition_en: null
+  definition_zh: 美国学生身份；本产品默认用户为 F-1 学生
+  ai_scope: EXPLAIN
+- term: OPT
+  full_name: Optional Practical Training
+  definition_en: Optional Practical Training is temporary employment authorization that allows eligible F-1 students to work in jobs directly related to their major field of study.
+  definition_zh: F-1 学生在专业相关领域工作的许可
+  ai_scope: EXPLAIN
+- term: Post-Completion OPT
+  full_name: null
+  definition_en: Post-Completion OPT allows eligible F-1 students to work in their field of study after completing their academic program.
+  definition_zh: 毕业后使用的 OPT，v1 唯一支持的类型
+  ai_scope: EXPLAIN
+- term: Pre-Completion OPT
+  full_name: null
+  definition_en: Pre-Completion OPT allows eligible F-1 students to obtain employment authorization before completing their academic program.
+  definition_zh: 在读期间使用的 OPT，v1 不支持
+  ai_scope: DEFINE_AND_REFER
+- term: STEM OPT
+  full_name: STEM OPT Extension
+  definition_en: STEM OPT is a 24-month extension of post-completion OPT available to eligible students with qualifying STEM degrees.
+  definition_zh: STEM 专业在毕业后 OPT 基础上的延期，v1 不支持
+  ai_scope: DEFINE_AND_REFER
+- term: I-20
+  full_name: Certificate of Eligibility for Nonimmigrant Student Status
+  definition_en: Form I-20 is a document issued by a school that contains information about an international student's academic program and F-1 status.
+  definition_zh: 学校签发的 F-1 身份文件
+  ai_scope: EXPLAIN
+- term: OPT I-20
+  full_name: null
+  definition_en: An OPT I-20 is an updated Form I-20 showing a DSO's recommendation for Optional Practical Training.
+  definition_zh: DSO 推荐 OPT 后学校签发的新 I-20，上面带有 OPT 推荐信息
+  ai_scope: EXPLAIN
+- term: Program End Date
+  full_name: null
+  definition_en: The Program End Date is the date listed on your Form I-20 when your academic program is expected to end.
+  definition_zh: I-20 上的项目结束日期
+  ai_scope: EXPLAIN
+- term: DSO
+  full_name: Designated School Official
+  definition_en: A Designated School Official is an authorized school representative who manages F-1 student immigration records and makes OPT recommendations in SEVIS.
+  definition_zh: 学校指定的国际学生官员，负责在 SEVIS 中推荐 OPT
+  ai_scope: EXPLAIN
+- term: SEVIS
+  full_name: Student and Exchange Visitor Information System
+  definition_en: The Student and Exchange Visitor Information System is a U.S. government system used to maintain records of international students and exchange visitors.
+  definition_zh: 记录国际学生信息的政府系统
+  ai_scope: EXPLAIN
+- term: USCIS
+  full_name: U.S. Citizenship and Immigration Services
+  definition_en: U.S. Citizenship and Immigration Services is the federal agency responsible for reviewing and deciding employment authorization applications.
+  definition_zh: 美国移民局，负责审批 I-765
+  ai_scope: EXPLAIN
+- term: I-765
+  full_name: Application for Employment Authorization
+  definition_en: Form I-765 is the application used to request employment authorization from USCIS.
+  definition_zh: 向 USCIS 申请工作许可的表格；申请 OPT 就是递交这张表
+  ai_scope: EXPLAIN
+- term: I-94
+  full_name: Arrival/Departure Record
+  definition_en: Form I-94 is an arrival and departure record that documents a nonimmigrant's admission to the United States.
+  definition_zh: 入境记录，申请材料之一
+  ai_scope: EXPLAIN
+- term: Receipt Notice
+  full_name: Form I-797C
+  definition_en: A Receipt Notice confirms that USCIS has received an application and provides a receipt number for tracking the case.
+  definition_zh: USCIS 收到申请后发出的收据通知，载有收到日期和收据号
+  ai_scope: EXPLAIN
+- term: Premium Processing
+  full_name: null
+  definition_en: Premium Processing is an optional USCIS service that provides expedited adjudicative action for certain eligible applications for an additional fee.
+  definition_zh: 向 USCIS 加付费用、换取更快审理行动的可选服务；不保证获批
+  ai_scope: EXPLAIN
+- term: RFE
+  full_name: Request for Evidence
+  definition_en: A Request for Evidence is a USCIS notice asking an applicant to provide additional information or documents.
+  definition_zh: USCIS 要求补充材料的通知
+  ai_scope: EXPLAIN
+- term: EAD
+  full_name: Employment Authorization Document
+  definition_en: An Employment Authorization Document is a card issued by USCIS as evidence of employment authorization for a specified period.
+  definition_zh: I-765 批准后寄来的工作许可卡
+  ai_scope: EXPLAIN
+- term: Unemployment days
+  full_name: null
+  definition_en: Unemployment days are days without qualifying employment that count toward the unemployment limit during post-completion OPT.
+  definition_zh: 毕业后 OPT 期间允许累计的失业天数上限（90 天），从批准的 OPT 开始日起算
+  ai_scope: EXPLAIN
+- term: Filing Window
+  full_name: null
+  definition_en: The Filing Window is the period during which USCIS may receive an eligible OPT application, subject to the applicable program-end and DSO-recommendation deadlines.
+  definition_zh: 递交 I-765 的合法时间段：毕业前 90 天至毕业后 60 天，且须在 DSO 推荐后 30 天内被 USCIS 收到
+  ai_scope: EXPLAIN
+- term: DSO Recommendation Date
+  full_name: null
+  definition_en: The DSO Recommendation Date is the date the DSO enters the OPT recommendation into SEVIS.
+  definition_zh: DSO 在 SEVIS 中录入 OPT 推荐的日期；不一定等于 OPT I-20 上的签发日（Date Issued）
+  ai_scope: EXPLAIN
+- term: Grace Period
+  full_name: null
+  definition_en: Eligible F-1 students may have a grace period after completing their program or authorized practical training. The length and availability depend on applicable immigration rules.
+  definition_zh: 完成学业或获批的实习后，符合条件的 F-1 学生可能有一段宽限期；长度和是否适用取决于现行移民规则
+  ai_scope: EXPLAIN
+- term: Requested Start Date
+  full_name: null
+  definition_en: The Requested Start Date is the date you select for your proposed OPT employment authorization to begin, subject to USCIS approval.
+  definition_zh: 你在 I-765 上选择的 OPT 开始日，须经 USCIS 批准；UW 指南说明递交后不能更改
+  ai_scope: EXPLAIN
+- term: OPT Validity Period
+  full_name: null
+  definition_en: Initial post-completion OPT generally allows up to 12 months of employment authorization, with the approved dates shown on the EAD.
+  definition_zh: 初次毕业后 OPT 一般最长 12 个月，批准的起止日期以 EAD 为准
+  ai_scope: EXPLAIN
+- term: 14-Month Rule
+  full_name: null
+  definition_en: The 14-Month Rule generally requires post-completion OPT to be completed within 14 months after the student's program end date.
+  definition_zh: 一般要求毕业后 OPT 在毕业后 14 个月内结束；申请越晚，实际可用时间可能越短
+  ai_scope: EXPLAIN
+- term: Eligibility Category (c)(3)(B)
+  full_name: null
+  definition_en: Category (c)(3)(B) is the Form I-765 eligibility classification for post-completion OPT.
+  definition_zh: I-765 上毕业后 OPT 对应的资格类别代码
+  ai_scope: EXPLAIN
+- term: CPT
+  full_name: Curricular Practical Training
+  definition_en: Curricular Practical Training is employment authorization for eligible F-1 students to participate in qualifying practical training that is an integral part of their curriculum.
+  definition_zh: 在读期间与课程相关的实习许可；同一学位全职 CPT 累计满 12 个月将不能再申请 OPT
+  ai_scope: EXPLAIN
+- term: F-1 Visa vs. F-1 Status
+  full_name: null
+  definition_en: An F-1 visa is generally used to request admission to the United States, while F-1 status is the immigration classification a student must maintain while in the country.
+  definition_zh: 签证一般用于申请入境；F-1 身份是在美期间需要维持的移民类别
+  ai_scope: EXPLAIN
+- term: Approval Notice
+  full_name: Form I-797
+  definition_en: An Approval Notice is a USCIS document informing an applicant that a specific immigration application or petition has been approved.
+  definition_zh: USCIS 批准申请后发出的通知，与收据通知（I-797C）不同
+  ai_scope: EXPLAIN
+- term: Receipt Number
+  full_name: null
+  definition_en: A Receipt Number is a unique identifier assigned by USCIS that applicants can use to track their cases.
+  definition_zh: 收据通知上的案件编号，用于在 USCIS 网站查询进度
+  ai_scope: EXPLAIN
+- term: USCIS Online Account
+  full_name: null
+  definition_en: A USCIS Online Account allows eligible applicants to submit certain forms, receive notices, and manage their immigration cases online.
+  definition_zh: USCIS 官网个人账户，可在线递交部分表格、接收通知和管理案件
+  ai_scope: EXPLAIN
+- term: Pending OPT
+  full_name: null
+  definition_en: Pending OPT means an OPT application has been submitted to USCIS but has not yet received a final decision.
+  definition_zh: 申请已递交但尚未有最终决定；拿到 EAD 且到达开始日之前不能工作
+  ai_scope: EXPLAIN

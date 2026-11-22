@@ -1,15 +1,27 @@
-# C3 Federal parameters (Data Spec 2.3). MOCK: values are the PRD 6.4 assumptions.
-reviewed_at: null                  # TODO(reviewer)
+# C3 Federal parameters (Data Spec 2.3). Source: "OPT Timeline Policy Reviewed", section D + addendum (2026-11-16).
+reviewed_at: 2026-11-16
 reviewer: null
 rules:                             # Implemented in app/opt/timeline.py; recorded here for sign-off
-  earliest_filing_days_before_end: 90
-  latest_filing_days_after_end: 60
-  filing_days_after_recommendation: 30
-  max_unemployment_days: 90        # P1
-  weekend_holiday_rule: CALENDAR_DAYS   # TODO(reviewer)
+  earliest_filing_days_before_end: 90       # USCIS I-765 instructions
+  latest_filing_days_after_end: 60          # USCIS I-765 instructions
+  filing_days_after_recommendation: 30      # counted from the SEVIS recommendation date, not the I-20 Date Issued
+  max_unemployment_days: 90                 # P1; counts from the approved OPT start date
+  weekend_holiday_rule: PENDING_VERIFICATION   # do not move deadlines automatically, do not claim they never move
   source_ids: [uscis-i765, dhs-sitc-opt]
 processing:
-  t_uscis_standard_days: 90        # TODO(reviewer): check USCIS Processing Times
-  t_uscis_premium_days: 30         # TODO(reviewer)
+  uscis_standard:                  # T_u
+    min: 90
+    max: 150
+    default: 150                   # conservative until the student picks
+    unit: calendar_days
+    note: "UW ISS estimate: 90–150 days. Not a USCIS guarantee; check USCIS Processing Times."
+    source_ids: [uscis-processing-times]
+  uscis_premium:                   # T_u with premium processing (Form I-907)
+    min: 1
+    max: 30
+    default: 30
+    unit: business_days
+    note: "USCIS takes adjudicative action within 30 business days after prerequisites are met. Not a guarantee of approval; check the current fee."
+    source_ids: [uscis-premium-processing]
   source_ids: [uscis-processing-times, uscis-premium-processing]
-buffer_days: 14                    # B: card mailing + margin, product setting
+buffer_days: 14                    # B: card mailing + margin; internal product setting, not a legal deadline

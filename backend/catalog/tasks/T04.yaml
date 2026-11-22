@@ -1,4 +1,4 @@
-# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+# C5 Task template (Data Spec 2.5 / PRD 5.2). Content: "OPT Timeline Policy Reviewed", section F (2026-11-16).
 id: T04
 policy_pack_id: uw-opt
 title: Prepare your Form I-765 documents
@@ -10,20 +10,26 @@ deadline_node: null
 complete_requires: []
 waiting_records: null
 steps:
-  - "Gather documents following the current USCIS instructions."
-  - "Choose your OPT start date."
-  - "Decide whether to use premium processing."
+  - "Review the current Form I-765 instructions and eligibility category (c)(3)(B)."
+  - "Gather the required identity, immigration, and OPT recommendation documents."
+  - "Select an eligible requested OPT start date."
+  - "Check the current filing fee and photograph requirements."
+  - "Decide whether to request premium processing."
 documents:
-  - name: New OPT I-20
-    where_to_get: Issued by UW
-  - name: I-94
-    where_to_get: CBP I-94 website
-  - name: Passport
-    where_to_get: Your own document
-  - name: Passport-style photos
-    where_to_get: A photo service
-  - name: Previous I-20s or EAD cards, if any
-    where_to_get: Your records
-  - name: Filing fee
-    where_to_get: See the current USCIS instructions
-source_ids: [uscis-i765, cbp-i94]
+  - name: New OPT-recommended Form I-20
+    where_to_get: UW ISS
+  - name: Most recent Form I-94
+    where_to_get: CBP — I-94
+  - name: Valid passport identification page
+    where_to_get: Your passport
+  - name: Passport-style photograph
+    where_to_get: Prepare according to current USCIS specifications
+  - name: Previous Forms I-20, if required
+    where_to_get: Your personal records or UW ISS
+  - name: Previous EADs, if applicable
+    where_to_get: Your personal immigration records
+  - name: Form I-765 filing fee
+    where_to_get: Current USCIS fee schedule
+  - name: Form I-907, if requesting premium processing
+    where_to_get: USCIS — Premium Processing
+source_ids: [uscis-i765, uw-post-completion-opt, uscis-premium-processing, cbp-i94]

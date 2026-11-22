@@ -1,4 +1,4 @@
-# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+# C5 Task template (Data Spec 2.5 / PRD 5.2). Content: "OPT Timeline Policy Reviewed", section F (2026-11-16).
 id: T06
 policy_pack_id: uw-opt
 title: Track your USCIS case
@@ -10,10 +10,20 @@ deadline_node: null
 complete_requires: []
 waiting_records: null
 steps:
-  - "Check your case status online with your receipt number."
-  - "Watch for a Request for Evidence (RFE)."
-  - "When your EAD card arrives, check the information on it."
+  - "Check your application status using your USCIS receipt number."
+  - "Monitor your USCIS account and mail for notices or Requests for Evidence."
+  - "Respond to any Request for Evidence by the deadline stated in the notice."
+  - "Review your Employment Authorization Document when it arrives."
+  - "Confirm your authorized employment start date before beginning work."
 documents:
-  - name: Receipt Notice (I-797C)
-    where_to_get: Mailed by USCIS
-source_ids: [uscis-case-status, uscis-processing-times]
+  - name: Receipt Notice (Form I-797C)
+    where_to_get: USCIS
+  - name: Receipt Number
+    where_to_get: USCIS Receipt Notice
+  - name: Request for Evidence, if applicable
+    where_to_get: USCIS
+  - name: Approval Notice, if issued
+    where_to_get: USCIS
+  - name: Employment Authorization Document (EAD)
+    where_to_get: USCIS
+source_ids: [uscis-case-status, uscis-i765, uw-opt-faq, uscis-processing-times]

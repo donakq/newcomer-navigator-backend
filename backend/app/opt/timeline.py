@@ -2,13 +2,16 @@
 
 Symbols follow the PRD: P = program end date, R = DSO recommendation date,
 S = offer start date, T_s / T_u = school / USCIS processing days, B = buffer.
-All dates are calendar days; "today" is the user's local date, passed in.
+Calendar days except where the reviewed UW policy (2026-11-16) gives business days: T_s (UW I-20
+processing) and premium processing. "today" is the user's local date, passed in.
 """
 
 from datetime import date, timedelta
 from enum import Enum
 
 from pydantic import BaseModel
+
+from app.opt.business_days import add_business_days, subtract_business_days
 
 
 class DueType(str, Enum):
@@ -34,6 +37,7 @@ class Risk(str, Enum):
     OUT_OF_SCOPE = "OUT_OF_SCOPE"
     WINDOW_CLOSED = "WINDOW_CLOSED"
     CONFLICT = "CONFLICT"
+    SEVIS_DATE_UNCONFIRMED = "SEVIS_DATE_UNCONFIRMED"  # R taken from the OPT I-20 issue date
 
 
 class WindowStatus(str, Enum):
@@ -52,11 +56,12 @@ class StartPreference(str, Enum):
 class TimelineParams(BaseModel):
     """Policy values; in production they come from the reviewed UW Policy Pack, never hard-coded."""
 
-    t_school: int  # T_s
-    t_uscis_standard: int  # T_u
-    t_uscis_premium: int  # T_u with premium processing
-    buffer: int  # B
+    t_school: int  # T_s, business days
+    t_uscis_standard: int  # T_u, calendar days
+    t_uscis_premium: int  # T_u with premium processing, business days
+    buffer: int  # B, calendar days
     school_window_open: date | None = None  # W_s; None = no data, constraint skipped
+    school_request_deadline: date | None = None  # last day to request the OPT I-20 (UW: P + 40); None = no node
 
 
 class TimelineInput(BaseModel):
@@ -64,7 +69,8 @@ class TimelineInput(BaseModel):
     today: date
     has_offer: bool
     offer_start: date | None = None  # S
-    dso_rec: date | None = None  # R
+    dso_rec: date | None = None  # R: the date the DSO entered the recommendation in SEVIS
+    i20_issue: date | None = None  # Date Issued on the OPT I-20; stands in for R until R is known
     i20_request: date | None = None
     uscis_receipt: date | None = None
     requested_start: date | None = None  # start date written on the filed I-765
@@ -74,7 +80,7 @@ class TimelineInput(BaseModel):
 
 
 class Node(BaseModel):
-    id: str  # N1, N1b, N2 .. N7
+    id: str  # N1, N1b, N1d, N2 .. N7
     date: date | None
     due_type: DueType
     date_state: DateState
@@ -111,7 +117,11 @@ def _sorted(nodes: list[Node]) -> list[Node]:
 
 
 def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResult:
-    p, r, today = inp.program_end, inp.dso_rec, inp.today
+    p, today = inp.program_end, inp.today
+    # USCIS counts 30 days from the SEVIS date; without it, the I-20 issue date (same day or later) is
+    # used and flagged, because the real deadline may be a few days earlier.
+    r = inp.dso_rec or inp.i20_issue
+    r_from_issue = inp.dso_rec is None and inp.i20_issue is not None
     filed = inp.uscis_receipt is not None
     branch = "OFFER" if inp.has_offer else "NO_OFFER"
     window = window_status(p, today)
@@ -129,8 +139,8 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     if inp.has_offer and inp.offer_start <= p:
         return result([], [Risk.OUT_OF_SCOPE])
 
-    risks: list[Risk] = []
-    r_state = DateState.USER_CONFIRMED if r else DateState.PARTIAL
+    risks: list[Risk] = [Risk.SEVIS_DATE_UNCONFIRMED] if r_from_issue else []
+    r_state = DateState.USER_CONFIRMED if inp.dso_rec else DateState.PARTIAL
 
     n2_date = max(p - _days(90), r) if r else p - _days(90)
     n4_date = min(p + _days(60), r + _days(30)) if r else p + _days(60)
@@ -150,7 +160,10 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     if conflict:
         n3_date = None
     elif inp.has_offer:
-        n3_raw = inp.offer_start - _days(t_uscis + params.buffer)
+        if inp.premium:
+            n3_raw = subtract_business_days(inp.offer_start - _days(params.buffer), t_uscis)
+        else:
+            n3_raw = inp.offer_start - _days(t_uscis + params.buffer)
         n3_date = max(n3_raw, n2_date)
         if not filed and (n3_raw < n2_date or n3_raw < today):
             risks.append(Risk.AT_RISK)
@@ -161,17 +174,21 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
     if n3_date is None:
         n1_date = None
     elif inp.has_offer:
-        floors = [p - _days(120 + params.t_school)]
+        floors = [subtract_business_days(p - _days(120), params.t_school)]
         if params.school_window_open:
             floors.append(params.school_window_open)
-        n1_date = max([n3_date - _days(params.t_school), *floors])
+        n1_date = max([subtract_business_days(n3_date, params.t_school), *floors])
     else:
-        n1_date = p - _days(90 + params.t_school)
+        n1_date = subtract_business_days(p - _days(90), params.t_school)
         if params.school_window_open:
             n1_date = max(n1_date, params.school_window_open)
+    deadline = params.school_request_deadline
+    if n1_date and deadline:
+        n1_date = min(n1_date, deadline)
     # PRD 8.4: a back-calculated date already in the past means the plan is late.
-    i20_pending = r is None and inp.i20_request is None
-    if inp.has_offer and not filed and i20_pending and n1_date and n1_date < today and Risk.AT_RISK not in risks:
+    i20_pending = r is None and inp.i20_request is None and not filed
+    late = (inp.has_offer and n1_date and n1_date < today) or (deadline and deadline < today)
+    if i20_pending and late and Risk.AT_RISK not in risks:
         risks.append(Risk.AT_RISK)
     if conflict:
         n1_state = DateState.CONFLICT
@@ -182,12 +199,13 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
 
     # N1b: when the OPT I-20 should arrive.
     if r:
-        n1b = Node(id="N1b", date=r, due_type=DueType.EVENT_BASED, date_state=DateState.USER_CONFIRMED)
+        n1b = Node(id="N1b", date=inp.i20_issue or r, due_type=DueType.EVENT_BASED,
+                   date_state=DateState.USER_CONFIRMED)
     else:
         requested = inp.i20_request or n1_date
         n1b = Node(
             id="N1b",
-            date=requested + _days(params.t_school) if requested else None,
+            date=add_business_days(requested, params.t_school) if requested else None,
             due_type=DueType.ESTIMATE,
             date_state=DateState.USER_CONFIRMED if inp.i20_request else DateState.PARTIAL,
         )
@@ -210,13 +228,20 @@ def compute_timeline(inp: TimelineInput, params: TimelineParams) -> TimelineResu
 
     # N6: estimated EAD arrival; N7: earliest day the student can start working.
     filing_date = inp.uscis_receipt or n3_date
-    n6_date = filing_date + _days(t_uscis) if filing_date else None
+    if filing_date is None:
+        n6_date = None
+    elif inp.premium:
+        n6_date = add_business_days(filing_date, t_uscis)
+    else:
+        n6_date = filing_date + _days(t_uscis)
     n7_date = max(d for d in (n5_date, n6_date) if d) if n5_date and n6_date else None
 
     conflict_state = DateState.CONFLICT if conflict else None
     nodes = [
         Node(id="N1", date=n1_date, due_type=DueType.RECOMMENDED, date_state=n1_state),
         n1b,
+        *([Node(id="N1d", date=deadline, due_type=DueType.SCHOOL, date_state=DateState.USER_CONFIRMED)]
+          if deadline else []),
         Node(id="N2", date=None if conflict else n2_date, due_type=DueType.FEDERAL,
              date_state=conflict_state or r_state),
         Node(id="N3", date=n3_date, due_type=DueType.RECOMMENDED, date_state=conflict_state or r_state),

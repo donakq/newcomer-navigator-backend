@@ -1,4 +1,4 @@
-# C5 Task template (Data Spec 2.5 / PRD 5.2). MOCK: content TODO(reviewer).
+# C5 Task template (Data Spec 2.5 / PRD 5.2). Content: "OPT Timeline Policy Reviewed", section F (2026-11-16).
 id: T01
 policy_pack_id: uw-opt
 title: Confirm which OPT process applies to you
@@ -10,9 +10,12 @@ deadline_node: null
 complete_requires: []
 waiting_records: null
 steps:
-  - "Confirm your Program End Date and that you need post-completion OPT."
-  - "Read the full process from UW ISS to USCIS."
+  - "Confirm your Program End Date on your current Form I-20."
+  - "Confirm valid F-1 status, at least one full academic year (three quarters) of full-time study, full-time CPT under 12 months at the same degree level, and no previous post-completion OPT at the same degree level."
+  - "Review the Post-Completion OPT application process and filing requirements."
 documents:
-  - name: Current I-20
-    where_to_get: Issued by UW
-source_ids: [uw-post-completion-opt]
+  - name: Current Form I-20
+    where_to_get: Your most recently issued Form I-20 from UW ISS
+  - name: Academic program information
+    where_to_get: Your UW academic records or academic adviser
+source_ids: [uw-post-completion-opt, uscis-i765]
