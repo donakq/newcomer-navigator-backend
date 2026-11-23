@@ -18,7 +18,7 @@ export function Shell({ children, wide = false }: { children: ReactNode; wide?: 
         </nav>
       </header>
       <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-950" role="note">
-        DEMO MODE · Test sign-in (code 000000) and sample data. Dates and school guidance have not been policy-reviewed. Do not use for real immigration filing decisions.
+        DEMO MODE · Test sign-in (code 000000). Confirm your filing dates with UW ISS or USCIS.
       </div>
       {children}
       <OptAssistantWidget />

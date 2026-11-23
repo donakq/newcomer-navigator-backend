@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { api, type ApiAssistantReply, type ApiDraft } from "@/lib/api";
+import { api, type ApiAssistantReply, type ApiDraft, type ApiOffice } from "@/lib/api";
 import { useDemoProfile } from "@/lib/demo";
 
 type View = "default" | "answer" | "contact";
@@ -17,15 +17,15 @@ function pageOf(path: string): { page: string; taskId: string | null } {
 }
 const DISCLAIMER = "This product does not provide legal advice. Please verify requirements and filing dates with your international student office and USCIS.";
 
-function suggestedQuestions(path: string, stage: string): string[] {
+function suggestedQuestions(path: string, hasPlan: boolean): string[] {
   if (path.includes("/opt/tasks/T02")) return ["What is an OPT I-20?", "How do I request it at UW?", "How long does UW take?"];
-  if (path.includes("/opt/tasks/T03")) return ["Where do I find my recommendation date?", "What if my I-20 has an error?"];
-  if (path.includes("/opt/tasks/T04")) return ["What documents do I need?", "Where do I get my I-94?"];
+  if (path.includes("/opt/tasks/T03")) return ["Where do I find my DSO recommendation date?", "What if my I-20 has an error?"];
+  if (path.includes("/opt/tasks/T04")) return ["What documents do I need?", "Where do I get my I-94?", "Which previous I-20s should I include?"];
   if (path.includes("/opt/tasks/T05")) return ["What is Form I-765?", "How do I file it?", "What happens after I file?"];
-  if (path.includes("/opt/tasks/T06")) return ["How do I check my case status?", "What if I get an RFE?", "When can I start working?"];
-  if (path.startsWith("/opt/timeline")) return ["How should I pick my start date?", "What if my EAD comes late?", "Why is this date unconfirmed?"];
-  if (path.startsWith("/opt/select")) return ["Which OPT is right for me?", "What's the difference between OPT types?"];
-  if (path.startsWith("/checklist")) return stage === "PLANNING" ? ["What is OPT?", "What's my first step?", "Who do I contact at UW?"] : ["What should I do next?", "When is my filing deadline?", "What documents do I need?"];
+  if (path.includes("/opt/tasks/T06")) return ["How do I check my case status?", "What if I receive an RFE?", "When can I start working?"];
+  if (path.startsWith("/opt/timeline")) return ["How should I choose my OPT start date?", "What if my EAD arrives late?", "Why is this deadline unconfirmed?"];
+  if (path.startsWith("/opt/select")) return ["Which OPT type does this app support?", "What's the difference between OPT types?"];
+  if (path.startsWith("/checklist")) return hasPlan ? ["What should I do next?", "When is my filing deadline?", "What documents do I need?"] : ["What is OPT?", "What's my first step?", "Who do I contact at UW?"];
   if (path.startsWith("/home")) return ["Why does my graduation date matter?", "How do I change my OPT selection?"];
   return ["What is OPT?", "What's my next step?", "Who do I contact at UW?"];
 }
@@ -51,7 +51,9 @@ export default function OptAssistantWidget() {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const officePage = "https://iss.washington.edu/";
-  const chips = suggestedQuestions(path, profile.stage);
+  const chips = [...suggestedQuestions(path, profile.optIntent === "AFTER_GRADUATION"), "I'm stuck"];
+  const [office, setOffice] = useState<ApiOffice | null>(null);
+  const [officeError, setOfficeError] = useState(false);
 
   async function submitQuestion(value: string) {
     const entered = value.trim();
@@ -85,6 +87,8 @@ export default function OptAssistantWidget() {
   }
 
   function showContact() {
+    setOfficeError(false);
+    api<ApiOffice>("GET", "/api/schools/uw/office").then(setOffice).catch(() => setOfficeError(true));
     setContactQuestion(messages.filter(m => m.role === "user").at(-1)?.text || question);
     setView("contact");
     setCopyNote("");
@@ -110,9 +114,16 @@ export default function OptAssistantWidget() {
           <button type="button" onClick={() => setView(messages.length ? "answer" : "default")} className="font-semibold text-[#336a48] hover:underline">← Back to assistant</button>
           <h3 className="text-base font-semibold">Contact My International Student Office</h3>
           <div className="rounded-xl bg-[#f3f6f1] p-4">
-            <p className="font-semibold">University of Washington · International Student Services (ISS)</p>
-            <p className="mt-1 text-xs text-gray-600">Official contact details and preferred contact channel must be verified in the UW Policy Pack before release.</p>
-            <a href={officePage} target="_blank" rel="noreferrer" className="mt-3 inline-block font-semibold text-[#336a48] underline">Visit official UW ISS website ↗</a>
+            {officeError && <p role="alert">UW ISS contact details could not be loaded.</p>}
+            {!office && !officeError && <p role="status">Loading UW ISS contact details…</p>}
+            {office && <>
+              <p className="font-semibold">{office.office_display_name}</p>
+              {office.phone && <p className="mt-1">{office.phone}</p>}
+              {office.office_hours && <p className="mt-1">{office.office_hours}</p>}
+              {office.notes && <p className="mt-2 text-xs text-gray-600">{office.notes}</p>}
+              {office.preferred_channel === "FORM" && office.advising_form_url && <a href={office.advising_form_url} target="_blank" rel="noreferrer" className="mt-3 block font-semibold text-[#336a48] underline">Open the UW ISS advising form ↗</a>}
+              {office.contact_page_url && <a href={office.contact_page_url} target="_blank" rel="noreferrer" className="mt-2 inline-block font-semibold text-[#336a48] underline">UW ISS contact page ↗</a>}
+            </>}
           </div>
           <label className="block space-y-1 font-medium">What do you need help with?
             <select value={topic} onChange={e => { setTopic(e.target.value); setDraft(null); }} className="mt-1 w-full rounded-xl border border-[#d9e0d8] p-3 font-normal">
@@ -122,7 +133,7 @@ export default function OptAssistantWidget() {
           <label className="block space-y-1 font-medium">Describe your question
             <textarea rows={3} value={contactQuestion} onChange={e => { setContactQuestion(e.target.value); setDraft(null); }} className="mt-1 w-full rounded-xl border border-[#d9e0d8] p-3 font-normal" placeholder="What would you like to ask your school's international student office?" />
           </label>
-          <button type="button" onClick={prepareDraft} className="w-full rounded-xl bg-[#336a48] px-4 py-3 font-semibold text-white">Draft my email</button>
+          <button type="button" onClick={prepareDraft} className="w-full rounded-xl bg-[#336a48] px-4 py-3 font-semibold text-white">{office?.preferred_channel === "FORM" ? "Draft my question" : "Draft my email"}</button>
           {draft && <div className="space-y-2 rounded-xl border border-[#dbe4d9] p-3">
             <p className="text-xs text-gray-600">Editable draft — fill in the [PLACEHOLDERS]. The app never sends it.</p>
             <label className="block text-xs font-semibold">Subject<input value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} className="mt-1 w-full rounded-lg border p-2 text-sm font-normal" /></label>
@@ -142,7 +153,7 @@ export default function OptAssistantWidget() {
           <button type="button" onClick={showContact} className="w-full rounded-xl border border-[#336a48] p-3 font-semibold text-[#336a48]">Contact My International Student Office</button>
         </>}
       </div>
-      <footer className="shrink-0 border-t border-[#e4e9e3] bg-[#fafbf9] px-4 py-3"><p className="text-[11px] leading-relaxed text-gray-600">{DISCLAIMER}</p><p className="mt-1 text-[11px] text-gray-500">Mock assistant: answers are placeholders and contact data is not verified. Do not enter passport, SEVIS, I-94 or student ID numbers.</p></footer>
+      <footer className="shrink-0 border-t border-[#e4e9e3] bg-[#fafbf9] px-4 py-3"><p className="text-[11px] leading-relaxed text-gray-600">{DISCLAIMER}</p><p className="mt-1 text-[11px] text-gray-500">Keep passport, SEVIS, I-94 and student ID numbers out of this chat.</p></footer>
     </section>}
     <button id="opt-assistant-toggle" type="button" onClick={() => setOpen(x => !x)} aria-expanded={open} aria-label="Toggle OPT assistant" className="ml-auto block rounded-full bg-[#336a48] px-5 py-3 text-sm font-semibold text-white shadow-xl">{open ? "Close" : "✦ Ask AI"}</button>
   </div>;

@@ -27,6 +27,7 @@ export async function api<T>(method: string, path: string, body?: unknown): Prom
   if (token) headers.Authorization = `Bearer ${token}`;
   const resp = await fetch(`${API_BASE}${path}`, {
     method,
+    cache: "no-store",
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -90,7 +91,37 @@ export type ApiTask = {
   node_ids: string[];
 };
 
+export type ApiProcessingTime = {
+  id: "school_business_days" | "uscis_standard_days" | "uscis_premium_business_days";
+  label: string;
+  min: number;
+  max: number;
+  default: number;
+  unit: "calendar_days" | "business_days";
+  chosen: number | null;
+  used: number;
+  note: string | null;
+  source_ids: string[];
+};
+
+export type ApiChecklist = {
+  graduation_banner: { window_opens_on: string; window_closes_on: string };
+  modules: { id: string; title: string; status: "OPEN" | "COMING_SOON"; link: string | null }[];
+};
+
+export type ApiOffice = {
+  office_display_name: string;
+  contact_email: string | null;
+  phone: string | null;
+  office_hours: string | null;
+  contact_page_url: string | null;
+  preferred_channel: "EMAIL" | "FORM" | "PORTAL";
+  advising_form_url: string | null;
+  notes: string | null;
+};
+
 export type ApiPlan = {
+  processing: ApiProcessingTime[];
   version: number;
   branch: "OFFER" | "NO_OFFER";
   window: string;

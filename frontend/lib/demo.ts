@@ -4,7 +4,7 @@
 // names for the pages, and sends edits. Pages read it through useDemoProfile().
 
 import { useEffect, useSyncExternalStore } from "react";
-import { api, ApiError, getToken, setToken, type ApiOffer, type ApiPlan, type ApiProfile, type ApiTask } from "./api";
+import { api, ApiError, getToken, setToken, type ApiOffer, type ApiProcessingTime, type ApiPlan, type ApiProfile, type ApiTask } from "./api";
 
 export type Stage = "PLANNING" | "I20_REQUESTED" | "I20_RECEIVED" | "I765_FILED" | "APPROVED";
 export type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING_EXTERNAL" | "COMPLETED" | "BLOCKED";
@@ -56,7 +56,7 @@ const YN_TO_API = { yes: "YES", no: "NO", unsure: "NOT_SURE" } as const;
 const PREF_TO_UI = { ASAP: "ASAP", SPECIFIC_DATE: "SPECIFIC", NOT_SURE: "UNSURE" } as const;
 const PREF_TO_API = { ASAP: "ASAP", SPECIFIC: "SPECIFIC_DATE", UNSURE: "NOT_SURE" } as const;
 
-function fromApi(p: ApiProfile, plan: ApiPlan | null, local: Profile): Profile {
+function fromApi(p: ApiProfile, plan: ApiPlan): Profile {
   const d = p.stage_dates, o = p.offer;
   return {
     email: p.email,
@@ -70,13 +70,12 @@ function fromApi(p: ApiProfile, plan: ApiPlan | null, local: Profile): Profile {
     i20IssueDate: d.i20_issue_date ?? "",
     uscisReceiptDate: d.uscis_receipt_date ?? "",
     requestedStartDate: d.requested_start_date ?? "",
-    // Keep unsaved timeline answers (e.g. "Yes" before the start date is typed) until they are complete.
-    hasOffer: o ? o.has_offer : local.hasOffer,
-    offerStartDate: o?.offer_start_date ?? local.offerStartDate,
-    startFlexible: o?.start_flexible ? YN_TO_UI[o.start_flexible] : local.startFlexible,
-    startPreference: o?.start_preference ? PREF_TO_UI[o.start_preference] : local.startPreference,
-    preferredStartDate: o?.preferred_start_date ?? local.preferredStartDate,
-    premiumIntent: o ? YN_TO_UI[o.premium_intent] : local.premiumIntent,
+    hasOffer: o?.has_offer ?? null,
+    offerStartDate: o?.offer_start_date ?? "",
+    startFlexible: o?.start_flexible ? YN_TO_UI[o.start_flexible] : "unsure",
+    startPreference: o?.start_preference ? PREF_TO_UI[o.start_preference] : "UNSURE",
+    preferredStartDate: o?.preferred_start_date ?? "",
+    premiumIntent: o ? YN_TO_UI[o.premium_intent] : "unsure",
     taskStatuses: Object.fromEntries((plan?.tasks ?? []).map(t => [t.id, t.status])),
   };
 }
@@ -119,7 +118,7 @@ export async function refresh(): Promise<void> {
   try {
     const { profile } = await api<{ profile: ApiProfile }>("GET", "/api/me/profile");
     const plan = await api<ApiPlan>("GET", "/api/me/opt-plan");
-    setState({ profile: fromApi(profile, plan, state.profile), plan, ready: true, onboarded: true, error: "" });
+    setState({ profile: fromApi(profile, plan), plan, ready: true, onboarded: true, error: "" });
   } catch (e) {
     if (e instanceof ApiError && e.code === "onboarding_required") {
       setState({ profile: EMPTY, plan: null, ready: true, onboarded: false });
@@ -159,6 +158,19 @@ export const actions = {
     await api("PUT", "/api/me/status", { stage, ...stageDates({ ...state.profile, ...dates }) }).catch(handleError);
     await refresh();
   },
+  async calculateTimeline(profile: Profile) {
+    const body = offerBody(profile);
+    if (!body) throw new Error("Choose a planning option and enter any required start date.");
+    if (profile.dsoRecDate !== state.profile.dsoRecDate) {
+      await api("PUT", "/api/me/status", { stage: profile.stage, ...stageDates(profile) }).catch(handleError);
+    }
+    await api("PUT", "/api/me/offer", body).catch(handleError);
+    await refresh();
+  },
+  async saveProcessingTimes(choices: Partial<Record<ApiProcessingTime["id"], number | null>>) {
+    await api("PUT", "/api/me/processing-times", choices).catch(handleError);
+    await refresh();
+  },
   async updateTask(taskId: string, status: TaskStatus, dates: Record<string, string> = {}) {
     const res = await api<{ task: ApiTask }>("PATCH", `/api/me/tasks/${taskId}`, { status, ...dates }).catch(handleError);
     await refresh();
@@ -171,9 +183,7 @@ export const actions = {
   },
 };
 
-const OFFER_KEYS: (keyof Profile)[] = ["hasOffer", "offerStartDate", "startFlexible", "startPreference", "preferredStartDate", "premiumIntent"];
-
-/** Edits from Home and the Timeline inputs. Applied locally right away, then saved when complete. */
+/** Profile edits from Home. */
 async function save(patch: Partial<Profile>) {
   const next = { ...state.profile, ...patch };
   setState({ profile: next });
@@ -181,13 +191,6 @@ async function save(patch: Partial<Profile>) {
   try {
     if (keys.includes("programEndDate") || keys.includes("degree")) {
       await api("PATCH", "/api/me/profile", { program_end_date: next.programEndDate || null, degree_level: DEGREE_TO_API[next.degree] });
-    }
-    if (keys.some(k => OFFER_KEYS.includes(k))) {
-      const body = offerBody(next);
-      if (body) await api("PUT", "/api/me/offer", body);
-    }
-    if (keys.includes("dsoRecDate") && next.dsoRecDate) {
-      await api("PUT", "/api/me/status", { stage: next.stage, ...stageDates(next) });
     }
     await refresh();
   } catch (e) {
@@ -229,16 +232,10 @@ export function formatDate(iso: string | null | undefined): string {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 // --- Timeline view model (from the backend plan; no date math here) ---
 
 export type TimelineWarning = {
-  code: "AT_RISK" | "GAP_WARNING" | "WINDOW_CLOSED" | "CONFLICT" | "OUT_OF_SCOPE" | "MISSING_INFO";
+  code: "AT_RISK" | "GAP_WARNING" | "WINDOW_CLOSED" | "CONFLICT" | "OUT_OF_SCOPE" | "MISSING_INFO" | "SEVIS_DATE_UNCONFIRMED";
   message: string;
   action: string;
   taskId?: string;
@@ -254,7 +251,8 @@ export type TimelineView = {
 const NODE_INFO: Record<string, { label: string; taskId: string; note: string }> = {
   N1: { label: "Request your OPT I-20 from UW ISS", taskId: "T02", note: "Target date based on UW's estimated processing time." },
   N1b: { label: "OPT I-20 expected", taskId: "T03", note: "Estimated until you enter your DSO recommendation date." },
-  N2: { label: "Earliest I-765 filing date", taskId: "T05", note: "90 days before your Program End Date, or your DSO recommendation date if later." },
+  N1d: { label: "UW deadline to request your OPT I-20", taskId: "T02", note: "School deadline set by UW ISS." },
+  N2: { label: "Earliest I-765 filing date", taskId: "T05", note: "Based on your program end date and OPT I-20 recommendation." },
   N3: { label: "Recommended I-765 filing date", taskId: "T05", note: "File by this date so your EAD can arrive in time." },
   N4: { label: "Latest I-765 filing date", taskId: "T05", note: "USCIS must receive your I-765 by this date." },
   N5: { label: "OPT start date on your I-765", taskId: "T04", note: "The start date you request on Form I-765." },
@@ -269,6 +267,7 @@ function kindOf(dueType: string, date: string | null, dateState = ""): string {
 }
 
 const RISK_TEXT: Record<string, Omit<TimelineWarning, "code">> = {
+  SEVIS_DATE_UNCONFIRMED: { message: "Your latest filing date is based on your I-20 issue date. The actual deadline may be earlier. Confirm your SEVIS recommendation date with UW ISS.", action: "Enter your confirmed SEVIS date", taskId: "T03" },
   AT_RISK: { message: "Based on current processing estimates, your EAD may not arrive before your offer start date.", action: "Prepare your documents now and talk to UW ISS", taskId: "T04" },
   GAP_WARNING: { message: "Your offer starts more than 60 days after your Program End Date. Your OPT start date can be no later than that, and the days in between may count as unemployment.", action: "Review your OPT start date", taskId: "T04" },
   WINDOW_CLOSED: { message: "The filing window closed 60 days after your Program End Date.", action: "Contact UW ISS" },
@@ -286,14 +285,14 @@ export function buildDemoTimeline(profile: Profile, plan: ApiPlan | null): Timel
     dateState: n.date_state,
     note: n.id === "N4" && n.date_state === "PARTIAL"
       ? "May be earlier once you add your DSO recommendation date."
-      : n.id === "N1b" && n.date_state === "USER_CONFIRMED"
-        ? "Your DSO recommendation date, as you entered it."
+      : n.id === "N1b" && n.due_type === "EVENT_BASED" && n.date_state === "USER_CONFIRMED"
+        ? profile.i20IssueDate ? "The issue date you entered for your OPT I-20." : "The DSO recommendation date you entered."
         : NODE_INFO[n.id]?.note ?? "",
     taskId: NODE_INFO[n.id]?.taskId ?? "T01",
   }));
   const warnings: TimelineWarning[] = plan.risk_labels.filter(code => code in RISK_TEXT)
     .map(code => ({ code: code as TimelineWarning["code"], ...RISK_TEXT[code] }));
-  if (!profile.dsoRecDate && plan.nodes.some(n => n.id === "N4" && n.date_state === "PARTIAL")) {
+  if (!plan.risk_labels.includes("SEVIS_DATE_UNCONFIRMED") && !profile.dsoRecDate && plan.nodes.some(n => n.id === "N4" && n.date_state === "PARTIAL")) {
     warnings.push({ code: "MISSING_INFO", message: "Your latest filing date may be earlier once you add your DSO recommendation date.", action: "Add your recommendation date", taskId: "T03" });
   }
   // Your next step: something you can act on now (not done, not blocked, not waiting on the school or USCIS).

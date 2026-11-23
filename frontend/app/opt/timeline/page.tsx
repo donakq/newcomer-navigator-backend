@@ -1,10 +1,12 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { buildDemoTimeline, formatDate, useDemoProfile, type Profile, type TimelineWarning } from "@/lib/demo";
+import type { ApiProcessingTime } from "@/lib/api";
+import { actions, buildDemoTimeline, formatDate, useDemoProfile, type Profile, type TimelineWarning } from "@/lib/demo";
 import { Field, inputClass, Panel, PrimaryLink, Shell } from "@/components/Shell";
 
 const riskStyles: Record<TimelineWarning["code"], string> = {
+  SEVIS_DATE_UNCONFIRMED: "border-red-300 bg-red-50 text-red-950",
   AT_RISK: "border-amber-300 bg-amber-50 text-amber-950",
   GAP_WARNING: "border-amber-300 bg-amber-50 text-amber-950",
   WINDOW_CLOSED: "border-red-300 bg-red-50 text-red-950",
@@ -28,10 +30,30 @@ function dayCount(date: string): string {
   return remaining < 0 ? `${-remaining} days ago` : remaining === 0 ? "Today" : `${remaining} days remaining`;
 }
 export default function TimelinePage() {
-  const { profile, plan, save, ready } = useDemoProfile();
+  const { profile: savedProfile, plan, ready, error: loadError } = useDemoProfile();
+  const [draft, setDraft] = useState<Partial<Profile>>({});
+  const [saving, setSaving] = useState(false);
+  const [processingSaving, setProcessingSaving] = useState(false);
+  const [error, setError] = useState("");
+  const profile = { ...savedProfile, ...draft };
   const [edit, setEdit] = useState(true);
-  const timeline = buildDemoTimeline(profile, plan);
-  function change<K extends keyof Profile>(key: K, value: Profile[K]) { save({ [key]: value }); }
+  const timeline = buildDemoTimeline(savedProfile, plan);
+  function change<K extends keyof Profile>(key: K, value: Profile[K]) {
+    setDraft(current => ({ ...current, [key]: value }));
+  }
+  async function calculate() {
+    setSaving(true);
+    setError("");
+    try {
+      await actions.calculateTimeline(profile);
+      setDraft({});
+      setEdit(false);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+    }
+  }
   const selectedBranch = profile.hasOffer === true ? "Backward plan · offer" : profile.hasOffer === false ? "Forward plan · no offer" : "Choose planning branch";
   return <Shell wide>
     <div className="flex flex-wrap items-start justify-between gap-4">
@@ -53,7 +75,7 @@ export default function TimelinePage() {
     </Panel>
     {edit && <Panel className="mt-6">
       <h2 className="text-xl font-bold">Plan your next steps</h2>
-      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+      <fieldset disabled={!ready || saving} className="mt-5 grid gap-5 sm:grid-cols-2">
         <Field label="Do you have a job offer with a start date?">
           <select className={inputClass} value={profile.hasOffer === null ? "" : profile.hasOffer ? "yes" : "no"} onChange={e => change("hasOffer", e.target.value === "" ? null : e.target.value === "yes")}>
             <option value="">Choose</option><option value="yes">Yes</option><option value="no">No</option>
@@ -69,11 +91,17 @@ export default function TimelinePage() {
         </>}
         <Field label="Plan to use premium processing?"><select className={inputClass} value={profile.premiumIntent} onChange={e => change("premiumIntent", e.target.value as Profile["premiumIntent"])}><option value="unsure">Not sure</option><option value="yes">Yes</option><option value="no">No</option></select></Field>
         {(profile.stage === "I20_RECEIVED" || !!profile.dsoRecDate) && <Field label="DSO recommendation date (SEVIS)" hint="Confirm the SEVIS date with UW ISS. The I-20 issue date may differ."><input type="date" className={inputClass} value={profile.dsoRecDate} onChange={e => change("dsoRecDate", e.target.value)} /></Field>}
-      </div>
+      </fieldset>
       {profile.hasOffer === false && <p className="mt-4 rounded-lg bg-[#eef4ef] p-4 text-sm leading-relaxed text-[#31533f]">Choosing an earlier requested OPT start date may permit an earlier start once authorized, but can also begin the unemployment-day period sooner. A later date may reduce that exposure but delays possible work authorization. Confirm your choice with UW ISS.</p>}
-      <button type="button" onClick={() => setEdit(false)} className="mt-6 rounded-xl bg-[#336a48] px-6 py-3 text-sm font-semibold text-white">Calculate My Timeline →</button>
-      <p className="mt-3 text-xs text-gray-500">Your answers are saved as soon as they are complete, and the timeline is recalculated by the backend.</p>
+      <button type="button" onClick={calculate} disabled={!ready || saving || processingSaving} className="mt-6 rounded-xl bg-[#336a48] px-6 py-3 text-sm font-semibold text-white disabled:opacity-50">{saving ? "Calculating…" : "Calculate My Timeline →"}</button>
+      {(error || loadError) && <p role="alert" className="mt-3 text-sm text-red-700">{error || loadError}</p>}
     </Panel>}
+    {plan && plan.processing.length > 0 && <ProcessingTimes
+      key={JSON.stringify(plan.processing.map(item => item.chosen))}
+      items={plan.processing}
+      timelineSaving={saving}
+      onSavingChange={setProcessingSaving}
+    />}
     {ready && timeline.warnings.length > 0 && <div className="mt-6 space-y-3" aria-label="Timeline notices">
       {timeline.warnings.map((warning, i) => <div key={`${warning.code}-${i}`} role="status" className={`rounded-xl border p-4 ${riskStyles[warning.code]}`}>
         <div className="text-xs font-bold tracking-wide">{warning.code.replaceAll("_", " ")}</div>
@@ -92,7 +120,7 @@ export default function TimelinePage() {
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_285px]">
       <Panel>
         <h2 className="text-xl font-bold">Timeline milestones</h2>
-        <p className="mt-2 text-xs text-gray-500">Chronological order; unknown dates follow their prerequisites when possible. All sample processing-time assumptions are unverified.</p>
+        <p className="mt-2 text-xs text-gray-500">Dated milestones appear in chronological order. Milestones with unknown dates follow their prerequisites when possible.</p>
         {!profile.programEndDate ? <div className="mt-5"><PrimaryLink href="/onboarding">Set Program End Date →</PrimaryLink></div> : <ol className="mt-6 space-y-3">
           {timeline.nodes.map(node => <li key={node.id} className="border-l-[3px] border-[#bcd0be] pb-4 pl-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -118,10 +146,69 @@ export default function TimelinePage() {
         {profile.hasOffer !== true && <Panel>
           <h2 className="text-lg font-bold">Have a job offer now?</h2>
           <p className="mt-2 text-sm text-gray-600">Switch to backward planning with an offer start date.</p>
-          <button type="button" onClick={() => { save({ hasOffer: true }); setEdit(true); }} className="mt-3 text-sm font-bold text-[#336a48] underline">I got an offer! →</button>
+          <button type="button" onClick={() => { change("hasOffer", true); setEdit(true); }} className="mt-3 text-sm font-bold text-[#336a48] underline">I got an offer! →</button>
         </Panel>}
       </div>
     </div>
-    <p className="mt-7 text-xs leading-relaxed text-gray-500">This product does not provide legal advice. Follow UW ISS and USCIS official guidance. All school and USCIS processing times here are hypothetical UI test fixtures, not current estimates or reviewed deadlines. Future production dates must come from a reviewed backend Policy Pack and Plan Service.</p>
+    {!!plan?.warnings.length && <Panel className="mt-6">
+      <h2 className="text-lg font-bold">Policy notes</h2>
+      <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-gray-600">{plan.warnings.map(note => <li key={note}>{note}</li>)}</ul>
+    </Panel>}
+    <p className="mt-7 text-xs leading-relaxed text-gray-500">This timeline is for informational purposes only and is not legal advice. Dates are based on the information you provide and may require confirmation by UW ISS or USCIS.</p>
   </Shell>;
+}
+
+function ProcessingTimes({ items, timelineSaving, onSavingChange }: {
+  items: ApiProcessingTime[];
+  timelineSaving: boolean;
+  onSavingChange: (saving: boolean) => void;
+}) {
+  const [choices, setChoices] = useState<Partial<Record<ApiProcessingTime["id"], string>>>({});
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    onSavingChange(true);
+    setError("");
+    const payload = Object.fromEntries(items.map(item => {
+      const value = choices[item.id];
+      return [item.id, value === undefined ? item.chosen : value === "" ? null : Number(value)];
+    }));
+    try {
+      await actions.saveProcessingTimes(payload);
+      setChoices({});
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSaving(false);
+      onSavingChange(false);
+    }
+  }
+
+  return <Panel className="mt-6">
+    <h2 className="text-xl font-bold">Processing time estimates</h2>
+    <p className="mt-2 text-sm text-gray-600">Choose an estimate within each range, or leave it blank to use the default.</p>
+    <form onSubmit={submit}>
+      <fieldset disabled={saving || timelineSaving} className="mt-4 grid gap-5 sm:grid-cols-3">
+        {items.map(item => {
+          const unit = item.unit.replaceAll("_", " ");
+          return <div key={item.id}>
+            <Field label={item.label} hint={item.min + "–" + item.max + " " + unit + " · Default " + item.default + " · Plan uses " + item.used}>
+              <input type="number" className={inputClass} min={item.min} max={item.max} step={1}
+                placeholder={String(item.default)} value={choices[item.id] ?? item.chosen ?? ""}
+                onChange={event => {
+                  const value = event.target.value;
+                  setChoices(current => ({ ...current, [item.id]: value }));
+                }} />
+            </Field>
+            {item.note && <p className="mt-2 text-xs text-gray-600">{item.note}</p>}
+          </div>;
+        })}
+      </fieldset>
+      <button type="submit" disabled={saving || timelineSaving || Object.keys(choices).length === 0} className="mt-5 rounded-xl border border-[#336a48] px-4 py-2 text-sm font-semibold text-[#336a48] disabled:opacity-50">{saving ? "Saving…" : "Save processing times"}</button>
+      {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+    </form>
+  </Panel>;
 }
