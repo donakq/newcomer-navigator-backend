@@ -253,3 +253,6 @@ No code tests; done when the deployed URLs below respond. Steps that need an acc
 
 - Pick the 1–2 MVP tasks from user interviews and fill in real steps, materials and official source URLs in a shared sheet, using the YAML fields in Data Model §3 as columns.
 - Frontend can start immediately from the schemas in Task 4 and the deployed `/docs` after Task 8.
+
+
+
