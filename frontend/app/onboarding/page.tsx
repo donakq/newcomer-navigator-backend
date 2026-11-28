@@ -1,11 +1,14 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { Field, inputClass, Panel, Shell } from "@/components/Shell";
 import { actions, type Profile } from "@/lib/demo";
 export default function Onboarding() {
   const router = useRouter(); const [programEndDate, setP] = useState(""); const [degree, setDegree] = useState<Profile["degree"]>("Master");
   const [err, setErr] = useState(""); const [busy, setBusy] = useState(false);
+  // Next keeps visited pages alive (cacheComponents). Clear the form when the page is hidden so it is
+  // blank the next time, e.g. after Start over.
+  useLayoutEffect(() => () => { setP(""); setDegree("Master"); setErr(""); }, []);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); if (!programEndDate) { setErr("Please enter your Program End Date."); return; }
     setBusy(true); setErr("");

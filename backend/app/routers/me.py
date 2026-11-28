@@ -19,6 +19,7 @@ from app.schemas.opt import (
     ChecklistResponse,
     DsoDraftRequest,
     DsoDraftResponse,
+    HistoryResponse,
     Offer,
     OnboardingRequest,
     OptIntent,
@@ -158,6 +159,26 @@ def patch_profile(body: ProfilePatch, state: UserState = Depends(current_state))
 def delete_account(token: str = Depends(current_session)) -> Response:
     get_store().delete_user(token)
     return Response(status_code=204)
+
+
+@router.post("/reset", status_code=204, response_class=Response)
+def reset(state: UserState = Depends(current_state)) -> Response:
+    """Start over: the current plan goes to history and the user is back at onboarding."""
+    get_store().reset(state)
+    return Response(status_code=204)
+
+
+@router.get("/history", response_model=HistoryResponse)
+def history(state: UserState = Depends(current_state)) -> HistoryResponse:
+    return HistoryResponse(entries=get_store().history(state.user_id))
+
+
+@router.post("/history/{entry_id}/restore", response_model=ProfileResponse)
+def restore(entry_id: str, state: UserState = Depends(current_state)) -> ProfileResponse:
+    """Make an archived plan current again; the plan that was current goes to history."""
+    if not get_store().restore(state, entry_id):
+        raise ApiError(404, "not_found", "That past plan was not found")
+    return ProfileResponse(profile=_profile(state))
 
 
 @router.get("/checklist", response_model=ChecklistResponse)

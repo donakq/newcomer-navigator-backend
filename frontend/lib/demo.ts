@@ -4,7 +4,7 @@
 // names for the pages, and sends edits. Pages read it through useDemoProfile().
 
 import { useEffect, useSyncExternalStore } from "react";
-import { api, ApiError, getToken, setToken, type ApiOffer, type ApiProcessingTime, type ApiPlan, type ApiProfile, type ApiTask } from "./api";
+import { api, ApiError, getToken, setToken, type ApiFeedback, type ApiHistoryEntry, type ApiOffer, type ApiProcessingTime, type ApiPlan, type ApiProfile, type ApiTask } from "./api";
 
 export type Stage = "PLANNING" | "I20_REQUESTED" | "I20_RECEIVED" | "I765_FILED" | "APPROVED";
 export type TaskStatus = "NOT_STARTED" | "IN_PROGRESS" | "WAITING_EXTERNAL" | "COMPLETED" | "BLOCKED";
@@ -180,6 +180,23 @@ export const actions = {
     await api("DELETE", "/api/me").catch(() => {});
     setToken(null);
     setState({ profile: EMPTY, plan: null, onboarded: false });
+  },
+  /** Start over: the backend keeps the current plan in history, then the user re-does onboarding. */
+  async startOver() {
+    await api("POST", "/api/me/reset").catch(handleError);
+    setState({ profile: EMPTY, plan: null, onboarded: false });
+  },
+  /** Make a past plan current again. The backend moves the current plan into history. */
+  async restorePlan(entryId: string) {
+    await api("POST", `/api/me/history/${encodeURIComponent(entryId)}/restore`).catch(handleError);
+    await refresh();
+  },
+  async history() {
+    const res = await api<{ entries: ApiHistoryEntry[] }>("GET", "/api/me/history").catch(handleError);
+    return res.entries;
+  },
+  async sendFeedback(feedback: ApiFeedback) {
+    await api("POST", "/api/assistant/feedback", feedback).catch(handleError);
   },
 };
 
