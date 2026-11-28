@@ -96,7 +96,7 @@ Which ranges, when (all omitted when the needed nodes are missing, e.g. window c
 
 | id | kind | start – end | when shown |
 |---|---|---|---|
-| FILING_WINDOW | LEGAL_WINDOW | N2 – N4 | always (narrows to R..R+30 once R is known) |
+| FILING_WINDOW | LEGAL_WINDOW | N2 – N4 | until the student has filed (narrows to R..R+30 once R is known) |
 | EAD_ARRIVAL | ESTIMATE | filing date + min USCIS time – filing date + max USCIS time | before approval |
 | DSO_REC_DATE | NEEDS_DATE | (I-20 request date or N1) + min school time – + max school time | R unknown and stage before I20_RECEIVED |
 | START_DATE | NEEDS_DATE | P+1 – P+60 | no offer and start preference NOT_SURE |
