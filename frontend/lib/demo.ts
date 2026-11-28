@@ -162,6 +162,11 @@ export const actions = {
     await api("PUT", "/api/me/onboarding", { school_id: "uw", program_end_date: programEndDate, degree_level: DEGREE_TO_API[degree] }).catch(handleError);
     await refresh();
   },
+  /** Setup Step 1 for a student who is already onboarded: PATCH keeps later answers (PUT /onboarding resets them). */
+  async updateProgram(programEndDate: string, degree: Profile["degree"]) {
+    await api("PATCH", "/api/me/profile", { program_end_date: programEndDate, degree_level: DEGREE_TO_API[degree] }).catch(handleError);
+    await refresh();
+  },
   async selectOpt(optIntent: string, firstTime: boolean) {
     await api("PUT", "/api/me/opt-selection", { opt_intent: optIntent, first_time_at_level: firstTime }).catch(handleError);
     await refresh();
