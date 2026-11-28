@@ -53,7 +53,7 @@ export default function Login() {
         <span>I agree to the Terms of Use and Privacy Policy. I understand this tool gives general guidance, not legal advice.</span>
       </label>}
       <button disabled={busy} className="w-full rounded-xl bg-[#336a48] px-5 py-3 font-semibold text-white disabled:opacity-50">{copy.cta}</button>
-    </form> : <form className="mt-7 space-y-5" onSubmit={e => { e.preventDefault(); run(async () => { const onboarded = await actions.verify(email, code, mode === "signin" || tos); router.push(onboarded ? "/checklist" : "/onboarding"); }); }}>
+    </form> : <form className="mt-7 space-y-5" onSubmit={e => { e.preventDefault(); run(async () => { const step = await actions.verify(email, code, mode === "signin" || tos); router.push(step === "done" ? "/checklist" : "/setup"); }); }}>
       <Field label={`Code sent to ${email}`} hint="Mock backend: no email is sent. The code is always 000000."><input inputMode="numeric" pattern="\d{6}" required className={inputClass} value={code} onChange={e => setCode(e.target.value)} placeholder="000000" /></Field>
       <button disabled={busy} className="w-full rounded-xl bg-[#336a48] px-5 py-3 font-semibold text-white disabled:opacity-50">Verify →</button>
       <button type="button" className="text-sm text-[#336a48]" onClick={() => { setSent(false); setCode(""); }}>Use a different email</button>
