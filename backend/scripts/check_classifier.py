@@ -1,10 +1,10 @@
 """Run the assistant classifier on the real model against a small labeled set and print a report.
 
-Costs real money (a few cents with the default FAST_MODEL). Needs a key:
+Uses config.LLM_PROVIDER. Anthropic costs a few cents; Gemini's free tier costs nothing (rate-limited).
 
     cd backend
-    export LLM_API_KEY=sk-ant-...        # or ANTHROPIC_API_KEY
-    .venv/bin/python -m scripts.check_classifier
+    LLM_API_KEY=sk-ant-... .venv/bin/python -m scripts.check_classifier                       # Anthropic
+    LLM_PROVIDER=gemini GEMINI_API_KEY=... .venv/bin/python -m scripts.check_classifier       # Gemini
 
 This is the seed of the 60-question eval set (Dev Plan W3 #18). Add cases to CASES as you find misses.
 """
@@ -43,10 +43,11 @@ CASES = [
 
 
 def main() -> int:
-    if not config.LLM_API_KEY:
-        print("No key: set LLM_API_KEY or ANTHROPIC_API_KEY.")
+    gemini = config.LLM_PROVIDER == "gemini"
+    if not (config.GEMINI_API_KEY if gemini else config.LLM_API_KEY):
+        print("No key: set GEMINI_API_KEY (with LLM_PROVIDER=gemini), or LLM_API_KEY / ANTHROPIC_API_KEY.")
         return 2
-    print(f"Model: {config.FAST_MODEL}\n")
+    print(f"Provider: {config.LLM_PROVIDER} · model: {config.GEMINI_MODEL if gemini else config.FAST_MODEL}\n")
     failures = 0
     for message, scope, risk, intent, note in CASES:
         started = time.perf_counter()
