@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import OfferForm from "@/components/OfferForm";
+import VerticalTimeline from "@/components/VerticalTimeline";
 import ProcessingTimesForm from "@/components/ProcessingTimesForm";
 import { buildDemoTimeline, formatDate, useDemoProfile, type TimelineWarning } from "@/lib/demo";
 import { Panel, PrimaryLink, Shell } from "@/components/Shell";
@@ -14,14 +15,6 @@ const riskStyles: Record<TimelineWarning["code"], string> = {
   CONFLICT: "border-red-300 bg-red-50 text-red-950",
   OUT_OF_SCOPE: "border-red-300 bg-red-50 text-red-950",
   MISSING_INFO: "border-slate-200 bg-slate-50 text-slate-800",
-};
-const labelStyles: Record<string, string> = {
-  "Federal deadline": "border-red-200 bg-red-50 text-red-800",
-  School: "border-sky-200 bg-sky-50 text-sky-800",
-  Recommended: "border-green-200 bg-green-50 text-green-800",
-  Estimate: "border-violet-200 bg-violet-50 text-violet-800",
-  "Not confirmed": "border-slate-200 bg-slate-100 text-slate-700",
-  "Your choice": "border-amber-200 bg-amber-50 text-amber-800",
 };
 function dayCount(date: string): string {
   if (!date) return "Date not confirmed";
@@ -82,25 +75,10 @@ export default function TimelinePage() {
     </Panel>}
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_285px]">
       <Panel>
-        <h2 className="text-xl font-bold">Timeline milestones</h2>
-        <p className="mt-2 text-xs text-gray-500">Dated milestones appear in chronological order. Milestones with unknown dates follow their prerequisites when possible.</p>
-        {!profile.programEndDate ? <div className="mt-5"><PrimaryLink href="/onboarding">Set Program End Date →</PrimaryLink></div> : <ol className="mt-6 space-y-3">
-          {timeline.nodes.map(node => <li key={node.id} className="border-l-[3px] border-[#bcd0be] pb-4 pl-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Link href={`/opt/tasks/${node.taskId}`} className="font-semibold text-[#2f5145] underline-offset-2 hover:underline">{node.label} ↗</Link>
-              <span className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${labelStyles[node.kind]}`}>{node.kind}</span>
-            </div>
-            <div className="mt-1 text-lg font-bold">{node.date ? `${node.kind === "Estimate" ? "~" : ""}${formatDate(node.date)}` : node.dateState === "CONFLICT" ? "Unavailable · conflict" : "Not confirmed"}</div>
-            <p className="mt-1 text-xs leading-relaxed text-gray-600">{node.note}</p>
-          </li>)}
-        </ol>}
+        <h2 className="mb-5 text-xl font-bold">Your timeline</h2>
+        {!profile.programEndDate || !plan ? <PrimaryLink href="/setup">Finish setting up your plan →</PrimaryLink> : <VerticalTimeline plan={plan} linkTasks />}
       </Panel>
       <div className="space-y-6">
-        <Panel>
-          <h2 className="text-lg font-bold">Date labels</h2>
-          <ul className="mt-4 space-y-3 text-sm">{["Federal deadline", "School", "Recommended", "Estimate", "Not confirmed", "Your choice"].map(k => <li key={k}><span className={`inline-block rounded-full border px-3 py-1 text-xs font-semibold ${labelStyles[k]}`}>{k}</span></li>)}</ul>
-          <p className="mt-3 text-xs text-gray-500">Federal boundaries, school planning targets, estimates, and choices are different kinds of dates. Color is not the only indicator.</p>
-        </Panel>
         <Panel>
           <h2 className="text-lg font-bold">Your checklist</h2>
           <p className="mt-2 text-sm text-gray-600">Open a milestone to see documents, sources, and the task you can update.</p>
