@@ -6,7 +6,7 @@ A request that fails before _commit() saves nothing.
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Header, Response
 
 from app.deps import current_session
 from app.errors import ApiError
@@ -75,6 +75,13 @@ def current_state(token: str = Depends(current_session)) -> UserState:
     if state is None:
         raise ApiError(401, "unauthenticated", "Your session has expired. Log in again.")
     return state
+
+
+def optional_state(authorization: str | None = Header(None)) -> UserState | None:
+    """Signed-out callers get None; a token that is sent must still be valid."""
+    if authorization is None:
+        return None
+    return current_state(current_session(authorization))
 
 
 def _profile(state: UserState) -> Profile:

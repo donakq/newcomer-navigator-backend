@@ -6,6 +6,7 @@ Derived from timeline nodes and the official processing-time min/max. The fronte
 from datetime import date, timedelta
 
 from app.opt.business_days import add_business_days
+from app.opt.processing import processing_times
 from app.opt.timeline import Risk, TimelineResult
 from app.schemas.opt import (
     ProcessingTime,
@@ -31,8 +32,6 @@ def _unit_text(unit: str) -> str:
 
 
 def build_ranges(profile: Profile, timeline: TimelineResult) -> list[TimelineRange]:
-    from app.mock.opt_demo import processing_times  # opt_demo builds the plan and imports this module
-
     # No ranges when the timeline itself has no usable dates (PRD 8.4).
     if not timeline.nodes or timeline.too_early or {Risk.CONFLICT, Risk.WINDOW_CLOSED} & set(timeline.risks):
         return []
@@ -47,8 +46,10 @@ def build_ranges(profile: Profile, timeline: TimelineResult) -> list[TimelineRan
         out.append(TimelineRange(
             id="FILING_WINDOW", kind=RangeKind.LEGAL_WINDOW, label="You can file Form I-765",
             start=nodes["N2"], end=nodes["N4"],
-            note="The legal filing window. It narrows to 30 days after your DSO recommendation once you enter it. "
-                 "Confirm with UW ISS.",
+            note=("The legal filing window: 30 days after your DSO recommendation, inside the federal window. "
+                  if dates.dso_rec_date else
+                  "The legal filing window. It narrows to 30 days after your DSO recommendation once you enter it. ")
+                 + "Confirm with UW ISS.",
             action=RangeAction.CONFIRM_WITH_SCHOOL, related_task_ids=["T05"]))
 
     filing = dates.uscis_receipt_date or nodes.get("N3")
@@ -65,7 +66,8 @@ def build_ranges(profile: Profile, timeline: TimelineResult) -> list[TimelineRan
             action=RangeAction.ADJUST_PROCESSING, related_task_ids=["T06"]))
 
     base = dates.i20_request_date or nodes.get("N1")
-    if dates.dso_rec_date is None and profile.stage in BEFORE_RECOMMENDATION and base:
+    # The I-20 issue date already stands in for R on the timeline, so no estimate is needed then.
+    if dates.dso_rec_date is None and dates.i20_issue_date is None and profile.stage in BEFORE_RECOMMENDATION and base:
         t = times["school_business_days"]
         out.append(TimelineRange(
             id="DSO_REC_DATE", kind=RangeKind.NEEDS_DATE, label="DSO recommendation date (expected)",

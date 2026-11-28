@@ -8,6 +8,7 @@ S = 2027-07-12), used by tests and as a sample.
 from datetime import date, datetime, timezone
 
 from app.config import DEFAULT_TIMEZONE
+from app.opt.processing import processing_times
 from app.opt.ranges import build_ranges
 from app.opt.content import OptContent, get_content
 from app.opt.timeline import (
@@ -114,31 +115,6 @@ def demo_profile() -> Profile:
         policy_version=policy_version(content),
         policy_last_reviewed=content.policy.reviewed_at,
     )
-
-
-PROCESSING_LABELS = {
-    "school_business_days": "UW ISS processing of your OPT I-20",
-    "uscis_standard_days": "USCIS processing (standard)",
-    "uscis_premium_business_days": "USCIS processing (premium)",
-}
-
-
-def processing_times(profile: Profile) -> list[ProcessingTime]:
-    """Ranges from the catalog plus the student's picks; the plan uses each one's `used` value."""
-    content = get_content()
-    ranges = {
-        "school_business_days": content.policy.timeline.t_school,
-        "uscis_standard_days": content.federal.processing.uscis_standard,
-        "uscis_premium_business_days": content.federal.processing.uscis_premium,
-    }
-    out = []
-    for field, r in ranges.items():
-        chosen = getattr(profile.processing, field)
-        out.append(ProcessingTime(
-            id=field, label=PROCESSING_LABELS[field], min=r.min, max=r.max, default=r.default, unit=r.unit,
-            chosen=chosen, used=chosen if chosen is not None else r.default, note=r.note, source_ids=r.source_ids,
-        ))
-    return out
 
 
 def demo_params(profile: Profile) -> TimelineParams:
