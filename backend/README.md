@@ -130,6 +130,9 @@ Environment variables are set per project, so set them in both:
 | `DATABASE_URL` | Yes | Postgres connection string. Use Neon's **pooled** URL; `postgres://…` works as-is |
 | `LLM_API_KEY` | Later (real assistant) | API key for the LLM |
 | `FAST_MODEL` | Optional | Model id for the assistant (default `claude-haiku-5-5`) |
+| `LLM_PROVIDER` | Optional | `anthropic` (default) or `gemini` |
+| `GEMINI_API_KEY` | When `LLM_PROVIDER=gemini` | Gemini API key from Google AI Studio. The free tier lets Google use prompts to improve its products |
+| `GEMINI_MODEL` | Optional | Gemini model id (default `gemini-3.5-flash-lite`, free tier) |
 | `CORS_ORIGINS` | Optional | Comma-separated frontend origins allowed to call the API (default `*`, any origin) |
 
 After a deploy, `/api/health` should return `"tasks": 6`.
