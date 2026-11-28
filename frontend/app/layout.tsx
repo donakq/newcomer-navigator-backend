@@ -18,6 +18,8 @@ export const metadata: Metadata = {
 };
 
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Suspense } from "react";
+import OptAssistantWidget from "@/components/OptAssistantWidget";
 
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -28,6 +30,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
+        {/* On every page. It reads the URL, which cacheComponents requires inside Suspense. */}
+        <Suspense fallback={null}><OptAssistantWidget /></Suspense>
         <SpeedInsights />
       </body>
     </html>

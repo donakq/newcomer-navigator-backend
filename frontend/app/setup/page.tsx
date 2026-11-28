@@ -1,5 +1,7 @@
 "use client";
+import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { getToken } from "@/lib/api";
 import { Field, inputClass, Panel, PrimaryLink, Shell } from "@/components/Shell";
 import OfferForm from "@/components/OfferForm";
 import ProcessingTimesForm from "@/components/ProcessingTimesForm";
@@ -16,7 +18,9 @@ export default function Setup() {
   const [step, setStep] = useState<number | null>(null);
   // Next keeps this page mounted while hidden: forget the step so a later visit resumes from saved data.
   useLayoutEffect(() => () => setStep(null), []);
+  const router = useRouter();
   useEffect(() => { if (ready && step === null) setStep(RESUME_AT[setupStep]); }, [ready, step, setupStep]);
+  useEffect(() => { if (ready && !getToken()) router.replace("/login?mode=signup"); }, [ready, router]);  // signed out
 
   if (!ready || step === null) return <Shell showNav={false}><p role="status">Loading your answers…</p></Shell>;
   const next = () => setStep(s => Math.min((s ?? 1) + 1, 6));
