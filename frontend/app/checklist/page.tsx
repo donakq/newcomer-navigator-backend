@@ -1,13 +1,22 @@
 "use client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Panel, PrimaryLink, Shell } from "@/components/Shell";
 import { api, type ApiChecklist } from "@/lib/api";
-import { formatDate, taskState, useDemoProfile } from "@/lib/demo";
+import { actions, formatDate, taskState, useDemoProfile } from "@/lib/demo";
 import { useEffect, useState } from "react";
 export default function ChecklistPage() {
   const {profile,ready,tasks:TASKS}=useDemoProfile(); const [filter,setFilter]=useState<"All"|"To do"|"Done">("All");
   const [overview, setOverview] = useState<ApiChecklist | null>(null);
   const [overviewError, setOverviewError] = useState("");
+  const router = useRouter(); const [resetting, setResetting] = useState(false); const [resetError, setResetError] = useState("");
+  async function startOver() {
+    if (!window.confirm("Start over? Your current plan and progress will be saved to History on your Home page, and you'll enter your program details again.")) return;
+    setResetting(true); setResetError("");
+    try { await actions.startOver(); router.push("/onboarding"); }
+    catch (e) { setResetError(e instanceof Error ? e.message : String(e)); }
+    finally { setResetting(false); }  // the page stays mounted while hidden, so don't leave the button stuck
+  }
   useEffect(() => {
     if (!profile.programEndDate) return;
     let active = true;
@@ -23,7 +32,7 @@ export default function ChecklistPage() {
   const hasPlan = profile.optIntent === "AFTER_GRADUATION";
   const visibleTasks = TASKS.filter(t=>filter==="All"||(filter==="Done"?profile.taskStatuses[t.id]==="COMPLETED":profile.taskStatuses[t.id]!=="COMPLETED"));
   return <Shell><div><h1 className="text-4xl font-bold tracking-tight">Your journey, step by step.</h1><p className="mt-3 text-gray-600">Your UW OPT preparation hub. Start a plan, track actions, and review key dates.</p></div>
-    <Panel className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Your Situation</h2><p className="mt-1 text-sm text-gray-600">UW · {profile.degree} · {profile.programEndDate ? `Program end ${formatDate(profile.programEndDate)}` : "Program End Date needed"}</p></div><Link href="/home" className="text-sm font-semibold text-[#336a48] underline">Edit →</Link></div></Panel>
+    <Panel className="mt-8"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-bold">Your Situation</h2><p className="mt-1 text-sm text-gray-600">UW · {profile.degree} · {profile.programEndDate ? `Program end ${formatDate(profile.programEndDate)}` : "Program End Date needed"}</p></div><div className="flex items-center gap-4"><button type="button" disabled={!ready || resetting} onClick={startOver} className="rounded-lg border border-[#abc5af] px-3 py-1.5 text-sm font-medium text-[#336a48] disabled:opacity-50">{resetting ? "Starting over…" : "Start over"}</button><Link href="/home" className="text-sm font-semibold text-[#336a48] underline">Edit →</Link></div></div>{resetError && <p role="alert" className="mt-3 text-sm text-red-700">{resetError}</p>}</Panel>
     {overviewError && <p role="alert" className="mt-4 text-sm text-red-700">{overviewError}</p>}
     {overview && <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-950">Indicative program-end filing window: {formatDate(overview.graduation_banner.window_opens_on)} to {formatDate(overview.graduation_banner.window_closes_on)}. Actual filing requires DSO recommendation and official confirmation.</div>}
     <div className="mt-8"><h2 className="mb-4 text-xl font-bold">My Checklist</h2>

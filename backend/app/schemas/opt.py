@@ -439,3 +439,50 @@ class DsoDraftResponse(BaseModel):
     subject: str
     body: str
     placeholders: list[str]
+
+
+# --- Assistant feedback (thumbs up / down) ---
+
+
+class FeedbackRating(str, Enum):
+    UP = "UP"
+    DOWN = "DOWN"
+
+
+class FeedbackReason(str, Enum):
+    WRONG_INFO = "WRONG_INFO"
+    NOT_RELEVANT = "NOT_RELEVANT"
+    UNCLEAR = "UNCLEAR"
+    MISSING_SOURCE = "MISSING_SOURCE"
+    OTHER = "OTHER"
+
+
+class AssistantFeedbackRequest(BaseModel):
+    """One rating of one answer. The question and answer text are not stored, only their category."""
+
+    rating: FeedbackRating
+    reasons: list[FeedbackReason] = Field(default_factory=list, max_length=len(FeedbackReason))
+    comment: str | None = Field(default=None, max_length=500)
+    conversation_id: str | None = Field(default=None, max_length=64)
+    intent: Intent | None = None
+    scope: Scope | None = None
+    current_page: str | None = Field(default=None, max_length=32)
+
+
+class AssistantFeedbackResponse(BaseModel):
+    id: str
+
+
+# --- Start over: earlier plans are kept as history ---
+
+
+class HistoryEntry(BaseModel):
+    id: str
+    archived_at: datetime
+    plan_version: int
+    profile: Profile
+    task_statuses: dict[str, TaskStatus]
+
+
+class HistoryResponse(BaseModel):
+    entries: list[HistoryEntry]  # newest first

@@ -5,14 +5,18 @@ Hands out copies, so a request that fails part way leaves stored data untouched,
 
 import copy
 import uuid
+from datetime import datetime, timezone
 
-from app.store.base import UserState, hash_token, new_token
+from app.schemas.opt import AssistantFeedbackRequest, HistoryEntry
+from app.store.base import UserState, apply_restore, clear_for_reset, hash_token, new_token
 
 
 class MemoryStore:
     def __init__(self) -> None:
         self._users: dict[str, UserState] = {}  # by user_id
         self._sessions: dict[str, str] = {}  # token hash -> user_id
+        self._history: dict[str, list[HistoryEntry]] = {}  # by user_id, oldest first
+        self._feedback: dict[str, list[AssistantFeedbackRequest]] = {}  # by user_id
 
     def _by_email(self, email: str) -> UserState | None:
         return next((u for u in self._users.values() if u.email == email), None)
@@ -44,5 +48,38 @@ class MemoryStore:
         user_id = self._sessions.get(hash_token(token))
         if user_id:
             self._users.pop(user_id, None)
+            self._history.pop(user_id, None)
+            self._feedback.pop(user_id, None)
             for h in [h for h, u in self._sessions.items() if u == user_id]:
                 del self._sessions[h]
+
+    def _archive(self, state: UserState) -> None:
+        if state.profile is not None:
+            self._history.setdefault(state.user_id, []).append(HistoryEntry(
+                id=str(uuid.uuid4()), archived_at=datetime.now(timezone.utc), plan_version=state.plan_version,
+                profile=copy.deepcopy(state.profile), task_statuses=dict(state.task_statuses)))
+
+    def reset(self, state: UserState) -> None:
+        if state.user_id not in self._users:
+            return
+        self._archive(state)
+        clear_for_reset(state)
+        self.save(state)
+
+    def restore(self, state: UserState, entry_id: str) -> bool:
+        entries = self._history.get(state.user_id, [])
+        entry = next((e for e in entries if e.id == entry_id), None)
+        if entry is None or state.user_id not in self._users:
+            return False
+        entries.remove(entry)
+        self._archive(state)
+        apply_restore(state, entry)
+        self.save(state)
+        return True
+
+    def history(self, user_id: str) -> list[HistoryEntry]:
+        return copy.deepcopy(list(reversed(self._history.get(user_id, []))))
+
+    def add_feedback(self, user_id: str, feedback: AssistantFeedbackRequest) -> str:
+        self._feedback.setdefault(user_id, []).append(feedback.model_copy())
+        return str(uuid.uuid4())

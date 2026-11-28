@@ -31,5 +31,6 @@ def test_all_routes_have_response_schemas():
         for method, op in methods.items():
             if "204" in op["responses"]:
                 continue  # no body by design (logout, delete account)
-            schema = op["responses"]["200"]["content"]["application/json"]["schema"]
+            ok = op["responses"].get("200") or op["responses"]["201"]  # 201: created (assistant feedback)
+            schema = ok["content"]["application/json"]["schema"]
             assert schema, f"{method.upper()} {path} has no response schema"

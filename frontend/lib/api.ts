@@ -143,6 +143,7 @@ export type ApiTaskDetail = {
 
 export type ApiAssistantReply = {
   conversation_id: string;
+  intent: string | null;
   scope: "IN" | "OUT" | "UNSUPPORTED_OPT";
   language: string;
   answer: string;
@@ -150,3 +151,22 @@ export type ApiAssistantReply = {
 };
 
 export type ApiDraft = { recipient: string | null; subject: string; body: string; placeholders: string[] };
+
+export type FeedbackReason = "WRONG_INFO" | "NOT_RELEVANT" | "UNCLEAR" | "MISSING_SOURCE" | "OTHER";
+export type ApiFeedback = {
+  rating: "UP" | "DOWN";
+  reasons?: FeedbackReason[];
+  comment?: string | null;
+  conversation_id?: string | null;
+  intent?: string | null;
+  scope?: string | null;
+  current_page?: string | null;
+};
+
+export type ApiHistoryEntry = {
+  id: string;
+  archived_at: string;
+  plan_version: number;
+  profile: { program_end_date: string; degree_level: string; stage: string | null; offer: { has_offer: boolean; offer_start_date: string | null } | null };
+  task_statuses: Record<string, string>;
+};
