@@ -6,7 +6,7 @@ Derived from timeline nodes and the official processing-time min/max. The fronte
 from datetime import date, timedelta
 
 from app.opt.business_days import add_business_days
-from app.opt.timeline import TimelineResult
+from app.opt.timeline import Risk, TimelineResult
 from app.schemas.opt import (
     ProcessingTime,
     Profile,
@@ -33,12 +33,13 @@ def _unit_text(unit: str) -> str:
 def build_ranges(profile: Profile, timeline: TimelineResult) -> list[TimelineRange]:
     from app.mock.opt_demo import processing_times  # opt_demo builds the plan and imports this module
 
-    if not timeline.nodes:
+    # No ranges when the timeline itself has no usable dates (PRD 8.4).
+    if not timeline.nodes or timeline.too_early or {Risk.CONFLICT, Risk.WINDOW_CLOSED} & set(timeline.risks):
         return []
     nodes = {n.id: n.date for n in timeline.nodes}
     times: dict[str, ProcessingTime] = {p.id: p for p in processing_times(profile)}
     dates = profile.stage_dates
-    filed = dates.uscis_receipt_date is not None
+    filed = dates.uscis_receipt_date is not None or profile.stage in (Stage.I765_FILED, Stage.APPROVED)
     offer = profile.offer
     out: list[TimelineRange] = []
 

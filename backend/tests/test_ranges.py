@@ -97,3 +97,39 @@ def test_ead_range_ends_at_the_students_processing_time(client, auth):
     ead = _ranges(plan)["EAD_ARRIVAL"]
     assert (ead["start"], ead["end"]) == (str(n3 + timedelta(90)), str(n3 + timedelta(100)))
     assert "90–100 days" in ead["note"]
+
+
+# --- Final-review fixes ---
+
+
+def test_approved_without_dates_has_no_filing_window(client, auth):
+    _status(client, auth, stage="APPROVED")
+    r = _ranges(_plan(client, auth))
+    assert "FILING_WINDOW" not in r and "EAD_ARRIVAL" not in r and "DSO_REC_DATE" not in r
+
+
+def test_filed_stage_has_no_filing_window(client, auth):
+    _status(client, auth, stage="I765_FILED", uscis_receipt_date="2027-03-25", requested_start_date="2027-07-12")
+    assert "FILING_WINDOW" not in _ranges(_plan(client, auth))
+
+
+def test_too_early_has_no_ranges(client, auth):
+    _offer(client, auth, has_offer=False, start_preference="NOT_SURE", premium_intent="NO")
+    assert client.patch("/api/me/profile", json={"program_end_date": "2028-06-01"}, headers=auth).status_code == 200
+    plan = _plan(client, auth)
+    assert plan["too_early"] is True
+    assert plan["ranges"] == []
+
+
+def test_window_closed_has_no_ranges(client, auth):
+    _offer(client, auth, has_offer=False, start_preference="NOT_SURE", premium_intent="NO")
+    assert client.patch("/api/me/profile", json={"program_end_date": "2026-06-01"}, headers=auth).status_code == 200
+    plan = _plan(client, auth)
+    assert "WINDOW_CLOSED" in plan["risk_labels"]
+    assert plan["ranges"] == []
+
+
+def test_conflict_hides_start_date_range_too(client, auth):
+    _offer(client, auth, has_offer=False, start_preference="NOT_SURE", premium_intent="NO")
+    _status(client, auth, stage="I20_RECEIVED", dso_rec_date="2027-02-01")
+    assert _plan(client, auth)["ranges"] == []
