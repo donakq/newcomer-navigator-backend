@@ -76,7 +76,7 @@ export default function TimelinePage() {
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_285px]">
       <Panel>
         <h2 className="mb-5 text-xl font-bold">Your timeline</h2>
-        {!profile.programEndDate || !plan ? <PrimaryLink href="/setup">Finish setting up your plan →</PrimaryLink> : <VerticalTimeline plan={plan} linkTasks />}
+        {!profile.programEndDate || !plan ? <PrimaryLink href="/setup">Finish setting up your plan →</PrimaryLink> : <VerticalTimeline plan={plan} linkTasks notices={false} />}
       </Panel>
       <div className="space-y-6">
         <Panel>

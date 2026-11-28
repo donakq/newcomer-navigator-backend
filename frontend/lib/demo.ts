@@ -68,7 +68,7 @@ const YN_TO_API = { yes: "YES", no: "NO", unsure: "NOT_SURE" } as const;
 const PREF_TO_UI = { ASAP: "ASAP", SPECIFIC_DATE: "SPECIFIC", NOT_SURE: "UNSURE" } as const;
 const PREF_TO_API = { ASAP: "ASAP", SPECIFIC: "SPECIFIC_DATE", UNSURE: "NOT_SURE" } as const;
 
-function fromApi(p: ApiProfile, plan: ApiPlan): Profile {
+function fromApi(p: ApiProfile, plan: ApiPlan | null): Profile {
   const d = p.stage_dates, o = p.offer;
   return {
     email: p.email,
@@ -127,16 +127,25 @@ function handleError(e: unknown): never {
 
 export async function refresh(): Promise<void> {
   if (!getToken()) { setState({ profile: EMPTY, plan: null, ready: true, onboarded: false, setupStep: "program" }); return; }
+  let profile: ApiProfile;
   try {
-    const { profile } = await api<{ profile: ApiProfile }>("GET", "/api/me/profile");
-    const plan = await api<ApiPlan>("GET", "/api/me/opt-plan");
-    setState({ profile: fromApi(profile, plan), plan, ready: true, onboarded: true, setupStep: nextSetupStep(profile), error: "" });
+    ({ profile } = await api<{ profile: ApiProfile }>("GET", "/api/me/profile"));
   } catch (e) {
     if (e instanceof ApiError && e.code === "onboarding_required") {
       setState({ profile: EMPTY, plan: null, ready: true, onboarded: false, setupStep: "program" });
       return;
     }
     setState({ ready: true, error: e instanceof Error ? e.message : String(e) });
+    handleError(e);
+  }
+  // Setup progress comes from the profile alone, so a failing plan never makes a student look new
+  // (that would send them to Step 1, whose PUT /onboarding resets their answers).
+  const known = { profile: fromApi(profile, null), ready: true, onboarded: true, setupStep: nextSetupStep(profile) };
+  try {
+    const plan = await api<ApiPlan>("GET", "/api/me/opt-plan");
+    setState({ ...known, profile: fromApi(profile, plan), plan, error: "" });
+  } catch (e) {
+    setState({ ...known, plan: null, error: e instanceof Error ? e.message : String(e) });
     handleError(e);
   }
 }
@@ -314,7 +323,7 @@ function kindOf(dueType: string, date: string | null, dateState = ""): string {
   return { FEDERAL: "Federal deadline", SCHOOL: "School", RECOMMENDED: "Recommended", ESTIMATE: "Estimate", EVENT_BASED: "Estimate", USER_DECISION: "Your choice" }[dueType] ?? "Not confirmed";
 }
 
-const RISK_TEXT: Record<string, Omit<TimelineWarning, "code">> = {
+export const RISK_TEXT: Record<string, Omit<TimelineWarning, "code">> = {
   SEVIS_DATE_UNCONFIRMED: { message: "Your latest filing date is based on your I-20 issue date. The actual deadline may be earlier. Confirm your SEVIS recommendation date with UW ISS.", action: "Enter your confirmed SEVIS date", taskId: "T03" },
   AT_RISK: { message: "Based on current processing estimates, your EAD may not arrive before your offer start date.", action: "Prepare your documents now and talk to UW ISS", taskId: "T04" },
   GAP_WARNING: { message: "Your offer starts more than 60 days after your Program End Date. Your OPT start date can be no later than that, and the days in between may count as unemployment.", action: "Review your OPT start date", taskId: "T04" },

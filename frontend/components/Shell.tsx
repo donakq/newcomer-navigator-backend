@@ -10,11 +10,12 @@ import OptAssistantWidget from "./OptAssistantWidget";
 export function Shell({ children, wide = false, showNav = true }: { children: ReactNode; wide?: boolean; showNav?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { ready, setupStep } = useDemoProfile();
+  const { ready, setupStep, error } = useDemoProfile();
   // App pages need a finished setup: send signed-in students with missing answers back to /setup.
   useEffect(() => {
-    if (showNav && ready && getToken() && setupStep !== "done") router.replace("/setup");
-  }, [showNav, ready, setupStep, router]);
+    // Never on a load error: the step may be unknown, and Step 1 would reset saved answers.
+    if (showNav && ready && !error && getToken() && setupStep !== "done") router.replace("/setup");
+  }, [showNav, ready, error, setupStep, router]);
   return <main className="min-h-screen bg-[#faf9f6] px-4 py-6 text-[#252d29] sm:px-7 sm:py-9">
     <div className={`mx-auto ${wide ? "max-w-6xl" : "max-w-5xl"}`}>
       <header className="mb-9 flex flex-wrap items-center justify-between gap-3 border-b border-[#e5e9e2] pb-5">

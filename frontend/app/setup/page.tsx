@@ -4,7 +4,7 @@ import { Field, inputClass, Panel, PrimaryLink, Shell } from "@/components/Shell
 import OfferForm from "@/components/OfferForm";
 import ProcessingTimesForm from "@/components/ProcessingTimesForm";
 import VerticalTimeline from "@/components/VerticalTimeline";
-import { actions, useDemoProfile, type Profile, type SetupStep, type Stage } from "@/lib/demo";
+import { actions, refresh, useDemoProfile, type Profile, type SetupStep, type Stage } from "@/lib/demo";
 
 // Six steps (design 2026-11-27). Steps 1–4 are required; 5 (processing times) can be skipped; 6 is the review.
 const TITLES = ["School & program", "Your OPT path", "Where you are now", "Job offer and start date", "Processing times", "Your timeline"];
@@ -12,7 +12,7 @@ const RESUME_AT: Record<SetupStep, number> = { program: 1, opt: 2, progress: 3, 
 const button = "rounded-xl bg-[#336a48] px-6 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40";
 
 export default function Setup() {
-  const { profile, plan, ready, onboarded, setupStep } = useDemoProfile();
+  const { profile, plan, ready, onboarded, setupStep, error } = useDemoProfile();
   const [step, setStep] = useState<number | null>(null);
   // Next keeps this page mounted while hidden: forget the step so a later visit resumes from saved data.
   useLayoutEffect(() => () => setStep(null), []);
@@ -32,6 +32,7 @@ export default function Setup() {
       {step === 3 && <ProgressStep profile={profile} onNext={next} />}
       {step === 4 && <><p className="mb-5 text-sm text-gray-600">With an offer we plan backward from your start date; without one we plan forward from the filing window.</p><OfferForm onSaved={next} submitLabel="Save & continue →" /></>}
       {step === 5 && plan && <><p className="mb-5 text-sm text-gray-600">We use the slowest official times unless you choose otherwise. You can change these later on your timeline.</p><ProcessingTimesForm items={plan.processing} onSaved={next} onSkip={next} /></>}
+      {step >= 5 && !plan && <div role="alert" className="text-sm text-red-700">We couldn&apos;t calculate your plan{error ? `: ${error}` : "."} Go back and check your dates, or <button type="button" onClick={() => refresh()} className="font-semibold underline">try again</button>.</div>}
       {step === 6 && plan && <>
         <p className="mb-6 text-sm text-gray-600">Here is your plan. Colored ranges show what to confirm with UW ISS, what is an estimate, and which dates we still need from you.</p>
         <VerticalTimeline plan={plan} />

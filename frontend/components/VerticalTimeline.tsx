@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useLayoutEffect, useState } from "react";
 import type { ApiPlan, ApiRange, ApiTask } from "@/lib/api";
-import { actions, formatDate } from "@/lib/demo";
+import { actions, formatDate, RISK_TEXT } from "@/lib/demo";
 import ProcessingTimesForm from "@/components/ProcessingTimesForm";
 
 const RANGE_STYLE: Record<ApiRange["kind"], string> = {
@@ -19,11 +19,7 @@ const DUE_CHIP: Record<ApiTask["due_type"], string> = {
   FEDERAL: "Federal deadline", SCHOOL: "School deadline", RECOMMENDED: "Recommended date", EVENT_BASED: "When it happens",
   ESTIMATE: "Estimate", USER_DECISION: "Your date", UNKNOWN: "Date not set",
 };
-const BLOCKING_RISKS: Record<string, string> = {
-  WINDOW_CLOSED: "The filing window has closed. Contact UW ISS before taking any step.",
-  CONFLICT: "Your dates conflict with the filing rules. Check your DSO recommendation date with UW ISS.",
-  OUT_OF_SCOPE: "Your start date is on or before your program end date, which is outside post-completion OPT. Check with UW ISS.",
-};
+const BLOCKING = new Set(["WINDOW_CLOSED", "CONFLICT", "OUT_OF_SCOPE"]);
 const ISS_URL = "https://iss.washington.edu/";
 
 type Item =
@@ -38,7 +34,8 @@ function todayIso(): string {
 }
 
 /** The student's plan as one dated column: task cards, colored ranges and a Today line (design 2026-11-27). */
-export default function VerticalTimeline({ plan, linkTasks = false }: { plan: ApiPlan; linkTasks?: boolean }) {
+/** `notices` = show the plan's risk notices above the column (off where the page already lists them). */
+export default function VerticalTimeline({ plan, linkTasks = false, notices = true }: { plan: ApiPlan; linkTasks?: boolean; notices?: boolean }) {
   const [open, setOpen] = useState<ApiRange["id"] | null>(null);
   useLayoutEffect(() => () => setOpen(null), []);  // pages stay mounted while hidden (cacheComponents)
 
@@ -53,10 +50,12 @@ export default function VerticalTimeline({ plan, linkTasks = false }: { plan: Ap
   const order = { today: 0, range: 1, milestone: 2, task: 3 };
   items.sort((a, b) => (a.date === null ? 1 : 0) - (b.date === null ? 1 : 0)
     || (a.date ?? "").localeCompare(b.date ?? "") || order[a.type] - order[b.type]);
-  const blocking = plan.risk_labels.filter(r => r in BLOCKING_RISKS);
+  const risks = notices ? plan.risk_labels.filter(r => r in RISK_TEXT) : [];
+  const opens = plan.nodes.find(n => n.id === "N2")?.date;
 
   return <div>
-    {blocking.map(r => <div key={r} role="alert" className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-950"><strong className="block text-xs tracking-wide">{r.replaceAll("_", " ")}</strong>{BLOCKING_RISKS[r]} <a href={ISS_URL} target="_blank" rel="noreferrer" className="font-semibold underline">UW ISS ↗</a></div>)}
+    {plan.too_early && <div role="status" className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-800"><strong className="block text-xs tracking-wide">MORE THAN 12 MONTHS AWAY</strong>Your program end date is more than a year away, so we only show when the filing window opens{opens ? ` (${formatDate(opens)})` : ""}. Your full timeline appears once you are within 12 months.</div>}
+    {risks.map(r => <div key={r} role={BLOCKING.has(r) ? "alert" : "status"} className={`mb-4 rounded-xl border p-4 text-sm ${BLOCKING.has(r) ? "border-red-300 bg-red-50 text-red-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}><strong className="block text-xs tracking-wide">{r.replaceAll("_", " ")}</strong>{RISK_TEXT[r].message} <a href={ISS_URL} target="_blank" rel="noreferrer" className="font-semibold underline">UW ISS ↗</a></div>)}
     <div className="mb-5 flex flex-wrap gap-4 text-xs text-gray-600">{LEGEND.map(l => <span key={l.kind} className="flex items-center gap-2"><span className={`inline-block h-3 w-6 rounded ${l.swatch}`} />{l.text}</span>)}</div>
     <ol className="relative space-y-3 border-l-2 border-[#cfd8cf] pl-6 sm:ml-28">
       {items.map((item, i) => {
