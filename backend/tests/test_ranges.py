@@ -88,3 +88,12 @@ def test_no_offer_not_sure_gets_start_date_range(client, auth):
 def test_conflict_has_no_ranges(client, auth):
     _status(client, auth, stage="I20_RECEIVED", dso_rec_date="2027-02-01")  # R + 30 < P - 90
     assert _plan(client, auth)["ranges"] == []
+
+
+def test_ead_range_ends_at_the_students_processing_time(client, auth):
+    assert client.put("/api/me/processing-times", json={"uscis_standard_days": 100}, headers=auth).status_code == 200
+    plan = _plan(client, auth)
+    n3 = _node(plan, "N3")
+    ead = _ranges(plan)["EAD_ARRIVAL"]
+    assert (ead["start"], ead["end"]) == (str(n3 + timedelta(90)), str(n3 + timedelta(100)))
+    assert "90–100 days" in ead["note"]

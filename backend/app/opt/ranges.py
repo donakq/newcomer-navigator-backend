@@ -54,10 +54,12 @@ def build_ranges(profile: Profile, timeline: TimelineResult) -> list[TimelineRan
     if filing and profile.stage != Stage.APPROVED:
         premium = offer is not None and offer.premium_intent == YesNoNotSure.YES
         t = times["uscis_premium_business_days" if premium else "uscis_standard_days"]
+        # Earliest = official minimum; latest = the student's own estimate (`used` = their pick, else the
+        # conservative default, which is the official maximum).
         out.append(TimelineRange(
             id="EAD_ARRIVAL", kind=RangeKind.ESTIMATE, label="EAD card expected",
-            start=_add(filing, t.min, t.unit), end=_add(filing, t.max, t.unit),
-            note=f"Based on USCIS processing of {t.min}–{t.max} {_unit_text(t.unit)} after filing. "
+            start=_add(filing, t.min, t.unit), end=_add(filing, t.used, t.unit),
+            note=f"Based on USCIS processing of {t.min}–{t.used} {_unit_text(t.unit)} after filing. "
                  "Adjust if you have better information.",
             action=RangeAction.ADJUST_PROCESSING, related_task_ids=["T06"]))
 
