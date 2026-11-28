@@ -9,9 +9,9 @@ router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 
 @router.post("/messages", response_model=AssistantResponse)
-def send_message(body: AssistantRequest, _: UserState | None = Depends(optional_state)) -> AssistantResponse:
+def send_message(body: AssistantRequest, state: UserState | None = Depends(optional_state)) -> AssistantResponse:
     """Open to signed-out visitors: the assistant is on every page, including the landing and sign-in pages."""
-    return opt_assistant.reply(body)
+    return opt_assistant.reply(body, state.profile if state else None)
 
 
 @router.post("/feedback", status_code=201, response_model=AssistantFeedbackResponse)
