@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { api, type ApiAssistantReply, type ApiDraft, type ApiOffice, type FeedbackReason } from "@/lib/api";
+import { api, getToken, type ApiAssistantReply, type ApiDraft, type ApiOffice, type FeedbackReason } from "@/lib/api";
 import { actions, useDemoProfile } from "@/lib/demo";
 
 type View = "default" | "answer" | "contact";
@@ -12,7 +12,8 @@ const QUESTION_TYPES: Record<string, string> = { "Confirm dates": "CONFIRM_DATES
 function pageOf(path: string): { page: string; taskId: string | null } {
   const task = path.match(/\/opt\/tasks\/(T\d+)/);
   if (task) return { page: "task", taskId: task[1] };
-  const page = path.startsWith("/opt/timeline") ? "timeline" : path.startsWith("/opt/select") ? "select_opt" : path.startsWith("/opt/status") ? "status" : path.startsWith("/home") ? "home" : "checklist";
+  const page = path === "/" ? "landing" : path.startsWith("/login") ? "login" : path.startsWith("/setup") ? "setup"
+    : path.startsWith("/opt/timeline") ? "timeline" : path.startsWith("/opt/select") ? "select_opt" : path.startsWith("/opt/status") ? "status" : path.startsWith("/home") ? "home" : "checklist";
   return { page, taskId: null };
 }
 const FEEDBACK_REASONS: { id: FeedbackReason; label: string }[] = [
@@ -146,10 +147,10 @@ export default function OptAssistantWidget() {
     catch { setCopyNote("Copy failed. Select and copy the draft manually."); }
   }
 
-  const available = !["/", "/login", "/onboarding"].includes(path);
-  if (!available) return null;
+  // Mounted once in the root layout, so it is on every page, signed in or not.
+  const signedIn = !!getToken();
 
-  return <div id="ask-ai" className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+  return <div id="ask-ai" className="fixed bottom-4 right-4 z-50 text-[#252d29] sm:bottom-6 sm:right-6">
     {open && <section role="dialog" aria-label="OPT assistant" aria-modal="false" className="fixed inset-0 flex h-[100dvh] w-screen flex-col overflow-hidden bg-white shadow-2xl sm:static sm:mb-3 sm:h-[min(680px,calc(100dvh-95px))] sm:w-[390px] sm:rounded-2xl sm:border sm:border-[#dbe4d9]">
       <header className="flex shrink-0 items-center justify-between bg-[#eef4ed] px-5 py-4">
         <div><h2 className="font-semibold text-[#244b35]">✦ OPT Assistant</h2><p className="text-xs text-gray-600">UW · Post-Completion OPT · Demo</p></div>
@@ -190,9 +191,9 @@ export default function OptAssistantWidget() {
         </> : <>
           {view === "default" ? <>
             <div className="rounded-xl bg-[#f3f6f1] p-4"><p className="font-semibold">Hi! How can I help with your OPT journey?</p><p className="mt-1 text-gray-600">Ask about OPT steps, dates, or which school office to contact.</p></div>
-            <p className="text-xs text-gray-500">Current stage: {profile.stage.replaceAll("_", " ")}</p>
+            {signedIn && <p className="text-xs text-gray-500">Current stage: {profile.stage.replaceAll("_", " ")}</p>}
           </> : <div aria-live="polite" className="space-y-3">
-            {messages.map((m, i) => <div key={i} className={`rounded-xl p-3 leading-relaxed ${m.role === "user" ? "ml-7 bg-[#eaf2e9]" : "mr-5 border border-[#e4e9e3] bg-[#fafbf9]"}`}><p className="mb-1 text-xs font-semibold text-gray-600">{m.role === "user" ? "You" : "OPT Assistant · Demo"}</p><p className="whitespace-pre-line">{m.text}</p>{m.sources && m.sources.length > 0 && <p className="mt-2 text-xs text-gray-500">Sources: {m.sources.map(src => src.url ? <a key={src.title} href={src.url} target="_blank" rel="noreferrer" className="underline">{src.title}</a> : <span key={src.title}>{src.title} (link pending review)</span>)}</p>}{m.role === "assistant" && i === messages.length - 1 && m.conversationId && <FeedbackBar key={i} message={m} page={pageOf(path).page} officePage={officePage} />}</div>)}
+            {messages.map((m, i) => <div key={i} className={`rounded-xl p-3 leading-relaxed ${m.role === "user" ? "ml-7 bg-[#eaf2e9]" : "mr-5 border border-[#e4e9e3] bg-[#fafbf9]"}`}><p className="mb-1 text-xs font-semibold text-gray-600">{m.role === "user" ? "You" : "OPT Assistant · Demo"}</p><p className="whitespace-pre-line">{m.text}</p>{m.sources && m.sources.length > 0 && <p className="mt-2 text-xs text-gray-500">Sources: {m.sources.map(src => src.url ? <a key={src.title} href={src.url} target="_blank" rel="noreferrer" className="underline">{src.title}</a> : <span key={src.title}>{src.title} (link pending review)</span>)}</p>}{m.role === "assistant" && i === messages.length - 1 && m.conversationId && signedIn && <FeedbackBar key={i} message={m} page={pageOf(path).page} officePage={officePage} />}</div>)}
           </div>}
           <div><p className="mb-2 text-xs font-semibold text-gray-600">Suggested questions</p><div className="flex flex-wrap gap-2">{chips.map(q => <button type="button" key={q} onClick={() => submitQuestion(q)} className="rounded-full border border-[#dce4da] px-3 py-2 text-xs text-[#2c5d40] hover:bg-[#f2f6f0]">{q}</button>)}</div></div>
           <form onSubmit={e => { e.preventDefault(); submitQuestion(question); }} className="space-y-2"><label htmlFor="opt-assistant-input" className="block text-xs font-semibold">Ask a question about OPT</label><textarea id="opt-assistant-input" rows={2} value={question} onChange={e => setQuestion(e.target.value)} className="w-full rounded-xl border border-[#d9e0d8] p-3" placeholder="Type your question..."/><button type="submit" disabled={!question.trim() || busy} className="rounded-xl bg-[#336a48] px-4 py-2 font-semibold text-white disabled:opacity-50">{busy ? "Sending…" : "Send"}</button></form>

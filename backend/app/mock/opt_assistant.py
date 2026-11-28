@@ -27,8 +27,8 @@ UNSUPPORTED_OPT = ("stem", "pre-completion")
 MAIN_SOURCE_ID = "uw-post-completion-opt"
 CONTACT_LABEL = "Contact My International Student Office"
 NEXT_STEP = {
-    "en": "Your next step is to request your OPT I-20 from {office} (task T02).",
-    "zh": "你的下一步是向 {office} 申请 OPT I-20（任务 T02）。",
+    "en": "Your next step is to request your OPT I-20 from {office}.",
+    "zh": "你的下一步是向 {office} 申请 OPT I-20。",
 }
 
 

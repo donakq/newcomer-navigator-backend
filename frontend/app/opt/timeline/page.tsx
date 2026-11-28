@@ -70,7 +70,7 @@ export default function TimelinePage() {
       {timeline.blocked ? <><h2 className="mt-2 text-lg font-bold">Resolve a date or eligibility conflict</h2><p className="mt-2 text-sm text-gray-600">A conflict or closed window prevents this demo from suggesting actionable filing dates. Check the warnings above and contact UW ISS.</p></> : timeline.next ? <>
         <h2 className="mt-2 text-lg font-bold">{timeline.next.label}</h2>
         <p className="mt-1 text-sm text-gray-600">{timeline.next.date ? `${formatDate(timeline.next.date)} · ${dayCount(timeline.next.date)}` : "Date not confirmed"} · {timeline.next.kind}</p>
-        <Link className="mt-3 inline-block text-sm font-bold text-[#336a48] underline" href={`/opt/tasks/${timeline.next.taskId}`}>View task {timeline.next.taskId} →</Link>
+        <Link className="mt-3 inline-block text-sm font-bold text-[#336a48] underline" href={`/opt/tasks/${timeline.next.taskId}`}>View this task →</Link>
       </> : <p className="mt-2 text-sm">Add your Program End Date and choose a planning branch.</p>}
     </Panel>}
     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_285px]">

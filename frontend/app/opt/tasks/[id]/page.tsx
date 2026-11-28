@@ -34,7 +34,7 @@ function TaskDetailsContent() {
     }); setDate(undefined); setIssueDate(undefined); setMessage(`Saved: ${status.replaceAll("_"," ").toLowerCase()}.`); }
     catch(e){ setMessage(e instanceof Error?e.message:String(e)); }
   };
-  return <Shell><Link href="/checklist" className="text-sm text-[#336a48]">← Back to My Checklist</Link><div className="mt-7 flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#336a48]">{id} · OPT TASK</p><h1 className="mt-3 text-4xl font-bold">{task.title}</h1>{(task.due_at || task.deadline_at) && <p className="mt-3 max-w-3xl text-gray-600">
+  return <Shell><Link href="/checklist" className="text-sm text-[#336a48]">← Back to My Checklist</Link><div className="mt-7 flex flex-wrap items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#336a48]">OPT TASK</p><h1 className="mt-3 text-4xl font-bold">{task.title}</h1>{(task.due_at || task.deadline_at) && <p className="mt-3 max-w-3xl text-gray-600">
       {task.due_at && task.due_at !== task.deadline_at && <>Target: {formatDate(task.due_at)}</>}
       {task.deadline_at && <>{task.due_at && task.due_at !== task.deadline_at && " · "}{deadlineLabel}: {formatDate(task.deadline_at)}</>}
     </p>}</div><span className="rounded-full bg-[#eef3e9] px-4 py-2 text-xs font-bold text-[#2f5145]">{state.replaceAll("_"," ")}</span></div>

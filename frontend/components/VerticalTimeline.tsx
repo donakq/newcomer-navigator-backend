@@ -66,7 +66,7 @@ export default function VerticalTimeline({ plan, linkTasks = false, notices = tr
         if (item.type === "task") {
           const t = item.task, done = t.status === "COMPLETED";
           const card = <div className={`rounded-xl border bg-white px-4 py-3 ${t.label === "OVERDUE" ? "border-red-300" : "border-[#e3e8e2]"}`}>
-            <strong className="block">{t.id} · {t.title}</strong>
+            <strong className="block">{t.title}</strong>
             <span className="text-xs text-gray-600">{done ? "Done ✓" : DUE_CHIP[t.due_type]}{t.label && !done ? ` · ${t.label}` : ""}</span>
           </div>;
           return <li key={t.id} className="relative">{dateLabel}<span className={`absolute -left-[31px] top-3 h-3 w-3 rounded-full border-2 border-white ring-1 ${done ? "bg-[#3b8253] ring-[#3b8253]" : "bg-white ring-[#336a48]"}`} />{linkTasks ? <Link href={`/opt/tasks/${t.id}`} className="block hover:opacity-80">{card}</Link> : card}</li>;

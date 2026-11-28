@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.store import UserState, get_store
-from app.routers.me import current_state
+from app.routers.me import current_state, optional_state
 from app.mock import opt_assistant
 from app.schemas.opt import AssistantFeedbackRequest, AssistantFeedbackResponse, AssistantRequest, AssistantResponse
 
@@ -9,7 +9,8 @@ router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 
 @router.post("/messages", response_model=AssistantResponse)
-def send_message(body: AssistantRequest, _: UserState = Depends(current_state)) -> AssistantResponse:
+def send_message(body: AssistantRequest, _: UserState | None = Depends(optional_state)) -> AssistantResponse:
+    """Open to signed-out visitors: the assistant is on every page, including the landing and sign-in pages."""
     return opt_assistant.reply(body)
 
 

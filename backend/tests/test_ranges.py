@@ -133,3 +133,15 @@ def test_conflict_hides_start_date_range_too(client, auth):
     _offer(client, auth, has_offer=False, start_preference="NOT_SURE", premium_intent="NO")
     _status(client, auth, stage="I20_RECEIVED", dso_rec_date="2027-02-01")
     assert _plan(client, auth)["ranges"] == []
+
+
+def test_filing_window_note_after_r_is_known(client, auth):
+    _status(client, auth, stage="I20_RECEIVED", dso_rec_date="2027-03-20")
+    note = _ranges(_plan(client, auth))["FILING_WINDOW"]["note"]
+    assert "once you enter it" not in note
+    assert "30 days after your DSO recommendation" in note
+
+
+def test_no_dso_estimate_once_i20_issue_date_known(client, auth):
+    _status(client, auth, stage="I20_REQUESTED", i20_request_date="2027-02-20", i20_issue_date="2027-03-10")
+    assert "DSO_REC_DATE" not in _ranges(_plan(client, auth))
