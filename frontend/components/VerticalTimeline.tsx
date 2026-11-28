@@ -19,6 +19,14 @@ const DUE_CHIP: Record<ApiTask["due_type"], string> = {
   FEDERAL: "Federal deadline", SCHOOL: "School deadline", RECOMMENDED: "Recommended date", EVENT_BASED: "When it happens",
   ESTIMATE: "Estimate", USER_DECISION: "Your date", UNKNOWN: "Date not set",
 };
+// Same status chips as the old checklist list, so students see where each task stands.
+const STATUS: Record<ApiTask["status"], { text: string; style: string }> = {
+  COMPLETED: { text: "Done", style: "bg-green-50 text-green-800" },
+  IN_PROGRESS: { text: "In progress", style: "bg-[#eef3e9] text-[#315b41]" },
+  WAITING_EXTERNAL: { text: "Waiting", style: "bg-amber-50 text-amber-900" },
+  NOT_STARTED: { text: "Not started", style: "bg-[#eef3e9] text-[#315b41]" },
+  BLOCKED: { text: "Blocked", style: "bg-gray-100 text-gray-600" },
+};
 const BLOCKING = new Set(["WINDOW_CLOSED", "CONFLICT", "OUT_OF_SCOPE"]);
 const ISS_URL = "https://iss.washington.edu/";
 
@@ -65,9 +73,10 @@ export default function VerticalTimeline({ plan, linkTasks = false, notices = tr
         if (item.type === "milestone") return <li key={`m-${i}`} className="relative">{dateLabel}<span className="absolute -left-[31px] top-3 h-3 w-3 rounded-full border-2 border-white bg-[#336a48] ring-1 ring-[#336a48]" /><div className="rounded-xl border border-[#e3e8e2] bg-white px-4 py-3"><strong className="block">{item.label}</strong><span className="text-xs text-gray-600">{item.chip}</span></div></li>;
         if (item.type === "task") {
           const t = item.task, done = t.status === "COMPLETED";
-          const card = <div className={`rounded-xl border bg-white px-4 py-3 ${t.label === "OVERDUE" ? "border-red-300" : "border-[#e3e8e2]"}`}>
-            <strong className="block">{t.title}</strong>
-            <span className="text-xs text-gray-600">{done ? "Done ✓" : DUE_CHIP[t.due_type]}{t.label && !done ? ` · ${t.label}` : ""}</span>
+          const card = <div className={`flex items-start justify-between gap-3 rounded-xl border bg-white px-4 py-3 ${t.label === "OVERDUE" ? "border-red-300" : "border-[#e3e8e2]"}`}>
+            <div className="min-w-0"><strong className="block">{t.title}</strong>
+              {!done && <span className="text-xs text-gray-600">{DUE_CHIP[t.due_type]}{t.label ? ` · ${t.label}` : ""}</span>}</div>
+            <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ${STATUS[t.status].style}`}>{STATUS[t.status].text}</span>
           </div>;
           return <li key={t.id} className="relative">{dateLabel}<span className={`absolute -left-[31px] top-3 h-3 w-3 rounded-full border-2 border-white ring-1 ${done ? "bg-[#3b8253] ring-[#3b8253]" : "bg-white ring-[#336a48]"}`} />{linkTasks ? <Link href={`/opt/tasks/${t.id}`} className="block hover:opacity-80">{card}</Link> : card}</li>;
         }
