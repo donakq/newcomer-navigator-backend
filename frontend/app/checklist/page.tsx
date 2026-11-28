@@ -13,7 +13,7 @@ export default function ChecklistPage() {
   async function startOver() {
     if (!window.confirm("Start over? Your current plan and progress will be saved to History on your Home page, and you'll enter your program details again.")) return;
     setResetting(true); setResetError("");
-    try { await actions.startOver(); router.push("/onboarding"); }
+    try { await actions.startOver(); router.push("/setup"); }
     catch (e) { setResetError(e instanceof Error ? e.message : String(e)); }
     finally { setResetting(false); }  // the page stays mounted while hidden, so don't leave the button stuck
   }

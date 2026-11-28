@@ -219,6 +219,7 @@ export const actions = {
   async restorePlan(entryId: string) {
     await api("POST", `/api/me/history/${encodeURIComponent(entryId)}/restore`).catch(handleError);
     await refresh();
+    return state.setupStep;
   },
   async history() {
     const res = await api<{ entries: ApiHistoryEntry[] }>("GET", "/api/me/history").catch(handleError);
