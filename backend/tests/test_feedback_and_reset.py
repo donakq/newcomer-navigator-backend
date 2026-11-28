@@ -154,3 +154,11 @@ def test_profile_patch_rejects_end_date_that_breaks_the_plan(client, auth):
     assert res.status_code == 422
     assert res.json()["error"]["code"] == "invalid_timeline_input"
     assert client.get("/api/me/profile", headers=auth).json()["profile"]["program_end_date"] == "2027-06-11"
+
+
+def test_blocked_task_error_names_the_task_not_its_code(client, auth):
+    res = client.patch("/api/me/tasks/T03", json={"status": "IN_PROGRESS"}, headers=auth)
+    assert res.status_code == 409
+    message = res.json()["error"]["message"]
+    assert "Request your OPT I-20 from UW ISS" in message
+    assert "T02" not in message

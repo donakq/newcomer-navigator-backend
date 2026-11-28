@@ -291,7 +291,8 @@ def patch_task(task_id: str, body: TaskPatchRequest, state: UserState = Depends(
     profile = _profile(state)
     current = next(t for t in _plan(state).tasks if t.id == task_id)
     if current.status == TaskStatus.BLOCKED and body.status:
-        raise ApiError(409, "task_blocked", f"Finish {', '.join(current.blocked_by)} first")
+        names = ", ".join(f'"{get_content().tasks[t].title}"' for t in current.blocked_by)  # names, not codes
+        raise ApiError(409, "task_blocked", f"Finish {names} first")
     dates = profile.stage_dates.model_copy(update=body.model_dump(exclude={"status"}, exclude_none=True))
     if body.status == TaskStatus.COMPLETED:
         _require(dates, tpl.complete_requires)  # already-saved dates count

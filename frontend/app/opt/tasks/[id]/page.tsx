@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Panel, Shell, inputClass } from "@/components/Shell";
-import { api, ApiError, type ApiTaskDetail } from "@/lib/api";
+import { api, ApiError, type ApiPlan, type ApiTaskDetail } from "@/lib/api";
 import { actions, formatDate, taskState, useDemoProfile, type TaskStatus } from "@/lib/demo";
 const TABS=["Steps","Documents","Official Sources","Timeline & Dependencies"] as const;
 // Which date each task records when its status changes (task templates: waiting_records / complete_requires).
@@ -39,9 +39,9 @@ function TaskDetailsContent() {
       {task.deadline_at && <>{task.due_at && task.due_at !== task.deadline_at && " · "}{deadlineLabel}: {formatDate(task.deadline_at)}</>}
     </p>}</div><span className="rounded-full bg-[#eef3e9] px-4 py-2 text-xs font-bold text-[#2f5145]">{state.replaceAll("_"," ")}</span></div>
     <Panel className="mt-7"><div className="flex flex-wrap gap-2 border-b border-[#e8ece5] pb-4" role="tablist" aria-label="Task details">{TABS.map(t=><button key={t} role="tab" aria-selected={tab===t} onClick={()=>setTab(t)} className={`rounded-lg px-4 py-2 text-sm ${tab===t?"bg-[#eaf3e8] font-semibold text-[#315b41]":"text-gray-600"}`}>{t}</button>)}</div>
-      <div className="mt-6 min-h-40">{tab==="Steps"&&<ol className="list-decimal space-y-4 pl-5 text-sm leading-relaxed">{detail.template_content.steps.map(s=><li key={s}>{s}</li>)}</ol>}{tab==="Documents"&&<ul className="list-disc space-y-3 pl-5 text-sm">{detail.template_content.documents.map(x=><li key={x.name}>{x.name}{x.where_to_get&&<span className="text-gray-500"> · {x.where_to_get}</span>}</li>)}</ul>}{tab==="Official Sources"&&<ul className="space-y-4">{detail.sources.map(s=><li key={s.id}>{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="font-semibold text-[#336a48] underline">{s.title} ↗</a>:<span className="font-semibold">{s.title}</span>}<p className="mt-1 text-xs text-gray-500">{s.url?"":"Link pending policy review · "}{s.last_reviewed?`Last reviewed ${formatDate(s.last_reviewed)}`:"Not yet reviewed"}</p></li>)}</ul>}{tab==="Timeline & Dependencies"&&<div className="space-y-3 text-sm"><p>Task status: <strong>{state.replaceAll("_"," ")}</strong></p>{task.blocked_by.length>0&&<p>Waiting on: {task.blocked_by.join(", ")}</p>}<p>Program end: {formatDate(profile.programEndDate)}</p><p>DSO recommendation: {formatDate(profile.dsoRecDate)}</p><Link href="/opt/timeline" className="font-semibold text-[#336a48] underline">Open Timeline →</Link></div>}</div>
+      <div className="mt-6 min-h-40">{tab==="Steps"&&<ol className="list-decimal space-y-4 pl-5 text-sm leading-relaxed">{detail.template_content.steps.map(s=><li key={s}>{s}</li>)}</ol>}{tab==="Documents"&&<ul className="list-disc space-y-3 pl-5 text-sm">{detail.template_content.documents.map(x=><li key={x.name}>{x.name}{x.where_to_get&&<span className="text-gray-500"> · {x.where_to_get}</span>}</li>)}</ul>}{tab==="Official Sources"&&<ul className="space-y-4">{detail.sources.map(s=><li key={s.id}>{s.url?<a href={s.url} target="_blank" rel="noreferrer" className="font-semibold text-[#336a48] underline">{s.title} ↗</a>:<span className="font-semibold">{s.title}</span>}<p className="mt-1 text-xs text-gray-500">{s.url?"":"Link pending policy review · "}{s.last_reviewed?`Last reviewed ${formatDate(s.last_reviewed)}`:"Not yet reviewed"}</p></li>)}</ul>}{tab==="Timeline & Dependencies"&&<div className="space-y-3 text-sm"><p>Task status: <strong>{state.replaceAll("_"," ")}</strong></p>{task.blocked_by.length>0&&<p>Waiting on: <TaskNames ids={task.blocked_by} plan={plan} /></p>}<p>Program end: {formatDate(profile.programEndDate)}</p><p>DSO recommendation: {formatDate(profile.dsoRecDate)}</p><Link href="/opt/timeline" className="font-semibold text-[#336a48] underline">Open Timeline →</Link></div>}</div>
     </Panel>
-    <Panel className="mt-5"><h2 className="text-lg font-bold">Update task status</h2>{state==="BLOCKED"?<p className="mt-2 text-sm text-amber-900">This task is blocked until {task.blocked_by.join(", ")} is done. Return to your checklist.</p>:<>
+    <Panel className="mt-5"><h2 className="text-lg font-bold">Update task status</h2>{state==="BLOCKED"?<p className="mt-2 text-sm text-amber-900">This task is blocked until <TaskNames ids={task.blocked_by} plan={plan} /> is done.</p>:<>
       {dateField&&<label className="mt-4 block text-sm font-semibold">{dateField.label}<input type="date" className={`${inputClass} mt-2 max-w-xs`} value={date ?? savedDate} onChange={e=>setDate(e.target.value)}/>{detail.field_hints[dateField.field]&&<span className="mt-1 block text-xs font-normal text-gray-500">{detail.field_hints[dateField.field]}</span>}</label>}
       {id === "T03" && <label className="mt-4 block text-sm font-semibold">OPT I-20 Date Issued
         <input type="date" className={`${inputClass} mt-2 max-w-xs`} value={issueDate ?? profile.i20IssueDate} onChange={e => setIssueDate(e.target.value)} />
@@ -61,4 +61,10 @@ export default function TaskDetails() {
       <TaskDetailsContent />
     </Suspense>
   );
+}
+
+/** Other tasks by name (never the internal code), each linking to its page. */
+function TaskNames({ ids, plan }: { ids: string[]; plan: ApiPlan | null }) {
+  return <>{ids.map((tid, i) => <span key={tid}>{i > 0 && ", "}<Link href={`/opt/tasks/${tid}`} className="font-semibold underline">
+    {plan?.tasks.find(t => t.id === tid)?.title ?? "an earlier task"}</Link></span>)}</>;
 }
