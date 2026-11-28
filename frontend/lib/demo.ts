@@ -139,9 +139,9 @@ export const actions = {
   async startLogin(email: string) {
     await api("POST", "/api/auth/email/start", { email });
   },
-  async verify(email: string, code: string) {
+  async verify(email: string, code: string, tosAccepted = true) {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const res = await api<{ token: string }>("POST", "/api/auth/email/verify", { email, code, tos_accepted: true, timezone });
+    const res = await api<{ token: string }>("POST", "/api/auth/email/verify", { email, code, tos_accepted: tosAccepted, timezone });
     setToken(res.token);
     await refresh();
     return state.onboarded;
