@@ -338,6 +338,32 @@ class ProcessingTime(BaseModel):
     source_ids: list[str]
 
 
+class RangeKind(str, Enum):
+    LEGAL_WINDOW = "LEGAL_WINDOW"  # green: confirm with the DSO
+    ESTIMATE = "ESTIMATE"  # amber: the student can adjust
+    NEEDS_DATE = "NEEDS_DATE"  # gray dashed: waiting for a real date
+
+
+class RangeAction(str, Enum):
+    CONFIRM_WITH_SCHOOL = "CONFIRM_WITH_SCHOOL"
+    ADJUST_PROCESSING = "ADJUST_PROCESSING"
+    ENTER_DSO_REC_DATE = "ENTER_DSO_REC_DATE"
+    PICK_START_DATE = "PICK_START_DATE"
+
+
+class TimelineRange(BaseModel):
+    """A date range drawn on the vertical timeline."""
+
+    id: str  # FILING_WINDOW | EAD_ARRIVAL | DSO_REC_DATE | START_DATE
+    kind: RangeKind
+    label: str
+    start: date
+    end: date
+    note: str
+    action: RangeAction
+    related_task_ids: list[str]
+
+
 class Plan(BaseModel):
     plan_id: str
     version: int
@@ -353,6 +379,7 @@ class Plan(BaseModel):
     processing: list[ProcessingTime]
     warnings: list[str]
     tasks: list[PlanTask]
+    ranges: list[TimelineRange] = []  # sorted by start
 
 
 # --- Task details ---
