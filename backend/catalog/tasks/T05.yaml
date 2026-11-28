@@ -19,7 +19,7 @@ documents:
   - name: Completed Form I-765
     where_to_get: USCIS website
   - name: Supporting documents
-    where_to_get: Materials prepared in T04
+    where_to_get: Materials from "Prepare your Form I-765 documents"
   - name: Filing fee payment
     where_to_get: USCIS payment instructions
   - name: Submission confirmation
