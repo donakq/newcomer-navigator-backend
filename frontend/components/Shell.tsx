@@ -4,24 +4,25 @@ import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import OptAssistantWidget from "./OptAssistantWidget";
 
-export function Shell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+// showNav=false hides the signed-in navigation and the AI widget (used on the sign-in page).
+export function Shell({ children, wide = false, showNav = true }: { children: ReactNode; wide?: boolean; showNav?: boolean }) {
   const pathname = usePathname();
   return <main className="min-h-screen bg-[#faf9f6] px-4 py-6 text-[#252d29] sm:px-7 sm:py-9">
     <div className={`mx-auto ${wide ? "max-w-6xl" : "max-w-5xl"}`}>
       <header className="mb-9 flex flex-wrap items-center justify-between gap-3 border-b border-[#e5e9e2] pb-5">
         <Link href="/" className="text-lg font-bold tracking-tight text-[#315f42]">✦ Paperwork Navigator</Link>
-        <nav className="flex flex-wrap items-center gap-4 text-sm text-[#48564d]" aria-label="Main navigation">
+        {showNav && <nav className="flex flex-wrap items-center gap-4 text-sm text-[#48564d]" aria-label="Main navigation">
           <Link className={pathname === "/home" ? "font-bold text-[#315f42]" : "hover:text-[#315f42]"} href="/home">Home</Link>
           <Link className={pathname?.startsWith("/checklist") ? "font-bold text-[#315f42]" : "hover:text-[#315f42]"} href="/checklist">My Checklist</Link>
           <Link href="/opt/timeline" className={pathname?.startsWith("/opt/timeline") ? "font-bold text-[#315f42]" : "hover:text-[#315f42]"}>Timeline</Link>
           <button type="button" onClick={() => document.getElementById("opt-assistant-toggle")?.click()} className="hover:text-[#315f42]">Ask AI</button>
-        </nav>
+        </nav>}
       </header>
       <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs leading-relaxed text-amber-950" role="note">
         DEMO MODE · Test sign-in (code 000000). Confirm your filing dates with UW ISS or USCIS.
       </div>
       {children}
-      <OptAssistantWidget />
+      {showNav && <OptAssistantWidget />}
     </div>
   </main>;
 }
