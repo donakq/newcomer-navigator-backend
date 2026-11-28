@@ -120,7 +120,19 @@ export type ApiOffice = {
   notes: string | null;
 };
 
+export type ApiRange = {
+  id: "FILING_WINDOW" | "EAD_ARRIVAL" | "DSO_REC_DATE" | "START_DATE";
+  kind: "LEGAL_WINDOW" | "ESTIMATE" | "NEEDS_DATE";
+  label: string;
+  start: string;
+  end: string;
+  note: string;
+  action: "CONFIRM_WITH_SCHOOL" | "ADJUST_PROCESSING" | "ENTER_DSO_REC_DATE" | "PICK_START_DATE";
+  related_task_ids: string[];
+};
+
 export type ApiPlan = {
+  ranges: ApiRange[];
   processing: ApiProcessingTime[];
   version: number;
   branch: "OFFER" | "NO_OFFER";

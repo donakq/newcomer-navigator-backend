@@ -151,6 +151,7 @@ def get_profile(state: UserState = Depends(current_state)) -> ProfileResponse:
 def patch_profile(body: ProfilePatch, state: UserState = Depends(current_state)) -> ProfilePatchResponse:
     changes = body.model_dump(exclude_none=True)
     state.profile = _profile(state).model_copy(update=changes)
+    _plan(state)  # a new end date can break saved inputs (e.g. a preferred start outside P+1..P+60)
     _commit(state, plan_changed="program_end_date" in changes)
     return ProfilePatchResponse(profile=state.profile, plan_version=state.plan_version)
 
@@ -205,7 +206,8 @@ def opt_selection(body: OptSelectionRequest, state: UserState = Depends(current_
     if body.opt_intent != OptIntent.AFTER_GRADUATION or not body.first_time_at_level:
         raise ApiError(422, "out_of_scope", "v1 only supports a first-time post-completion OPT application")
     selection = OptSelection(opt_intent=body.opt_intent, first_time_at_level=True, opt_type=OptType.POST_COMPLETION)
-    state.profile = profile.model_copy(update={"opt_selection": selection, "stage": profile.stage or Stage.PLANNING})
+    # The stage stays unanswered (None) until the student picks it, so /setup can resume at that step.
+    state.profile = profile.model_copy(update={"opt_selection": selection})
     state.task_statuses["T01"] = TaskStatus.COMPLETED  # Select OPT is how T01 gets done
     _commit(state)
     return OptSelectionResponse(opt_type=OptType.POST_COMPLETION)

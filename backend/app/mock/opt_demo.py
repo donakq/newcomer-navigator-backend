@@ -8,6 +8,7 @@ S = 2027-07-12), used by tests and as a sample.
 from datetime import date, datetime, timezone
 
 from app.config import DEFAULT_TIMEZONE
+from app.opt.ranges import build_ranges
 from app.opt.content import OptContent, get_content
 from app.opt.timeline import (
     DateState,
@@ -241,4 +242,5 @@ def build_plan(profile: Profile, statuses: dict[str, TaskStatus] | None = None, 
         processing=processing_times(profile),
         warnings=get_content().warnings,
         tasks=build_tasks(timeline, statuses or {}, today),
+        ranges=build_ranges(profile, timeline),
     )

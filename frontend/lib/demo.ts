@@ -37,8 +37,20 @@ const EMPTY: Profile = {
   premiumIntent: "unsure", taskStatuses: {},
 };
 
-type State = { profile: Profile; plan: ApiPlan | null; ready: boolean; onboarded: boolean; error: string };
-let state: State = { profile: EMPTY, plan: null, ready: false, onboarded: false, error: "" };
+/** Where a student is in /setup. Processing times and the timeline review are optional, so they never block. */
+export type SetupStep = "program" | "opt" | "progress" | "offer" | "done";
+
+export function nextSetupStep(p: ApiProfile | null): SetupStep {
+  if (!p) return "program";
+  const sel = p.opt_selection;
+  if (!sel || sel.opt_intent !== "AFTER_GRADUATION" || !sel.first_time_at_level) return "opt";
+  if (p.stage === null) return "progress";
+  if (p.offer === null) return "offer";
+  return "done";
+}
+
+type State = { profile: Profile; plan: ApiPlan | null; ready: boolean; onboarded: boolean; setupStep: SetupStep; error: string };
+let state: State = { profile: EMPTY, plan: null, ready: false, onboarded: false, setupStep: "program", error: "" };
 let loading: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
@@ -56,7 +68,7 @@ const YN_TO_API = { yes: "YES", no: "NO", unsure: "NOT_SURE" } as const;
 const PREF_TO_UI = { ASAP: "ASAP", SPECIFIC_DATE: "SPECIFIC", NOT_SURE: "UNSURE" } as const;
 const PREF_TO_API = { ASAP: "ASAP", SPECIFIC: "SPECIFIC_DATE", UNSURE: "NOT_SURE" } as const;
 
-function fromApi(p: ApiProfile, plan: ApiPlan): Profile {
+function fromApi(p: ApiProfile, plan: ApiPlan | null): Profile {
   const d = p.stage_dates, o = p.offer;
   return {
     email: p.email,
@@ -107,24 +119,33 @@ function stageDates(p: Profile) {
 function handleError(e: unknown): never {
   if (e instanceof ApiError && e.status === 401) {
     setToken(null);
-    setState({ profile: EMPTY, plan: null, onboarded: false });
+    setState({ profile: EMPTY, plan: null, onboarded: false, setupStep: "program" });
     if (typeof window !== "undefined" && !["/", "/login"].includes(window.location.pathname)) window.location.href = "/login";
   }
   throw e;
 }
 
 export async function refresh(): Promise<void> {
-  if (!getToken()) { setState({ profile: EMPTY, plan: null, ready: true, onboarded: false }); return; }
+  if (!getToken()) { setState({ profile: EMPTY, plan: null, ready: true, onboarded: false, setupStep: "program" }); return; }
+  let profile: ApiProfile;
   try {
-    const { profile } = await api<{ profile: ApiProfile }>("GET", "/api/me/profile");
-    const plan = await api<ApiPlan>("GET", "/api/me/opt-plan");
-    setState({ profile: fromApi(profile, plan), plan, ready: true, onboarded: true, error: "" });
+    ({ profile } = await api<{ profile: ApiProfile }>("GET", "/api/me/profile"));
   } catch (e) {
     if (e instanceof ApiError && e.code === "onboarding_required") {
-      setState({ profile: EMPTY, plan: null, ready: true, onboarded: false });
+      setState({ profile: EMPTY, plan: null, ready: true, onboarded: false, setupStep: "program" });
       return;
     }
     setState({ ready: true, error: e instanceof Error ? e.message : String(e) });
+    handleError(e);
+  }
+  // Setup progress comes from the profile alone, so a failing plan never makes a student look new
+  // (that would send them to Step 1, whose PUT /onboarding resets their answers).
+  const known = { profile: fromApi(profile, null), ready: true, onboarded: true, setupStep: nextSetupStep(profile) };
+  try {
+    const plan = await api<ApiPlan>("GET", "/api/me/opt-plan");
+    setState({ ...known, profile: fromApi(profile, plan), plan, error: "" });
+  } catch (e) {
+    setState({ ...known, plan: null, error: e instanceof Error ? e.message : String(e) });
     handleError(e);
   }
 }
@@ -144,10 +165,15 @@ export const actions = {
     const res = await api<{ token: string }>("POST", "/api/auth/email/verify", { email, code, tos_accepted: tosAccepted, timezone });
     setToken(res.token);
     await refresh();
-    return state.onboarded;
+    return state.setupStep;
   },
   async onboard(programEndDate: string, degree: Profile["degree"]) {
     await api("PUT", "/api/me/onboarding", { school_id: "uw", program_end_date: programEndDate, degree_level: DEGREE_TO_API[degree] }).catch(handleError);
+    await refresh();
+  },
+  /** Setup Step 1 for a student who is already onboarded: PATCH keeps later answers (PUT /onboarding resets them). */
+  async updateProgram(programEndDate: string, degree: Profile["degree"]) {
+    await api("PATCH", "/api/me/profile", { program_end_date: programEndDate, degree_level: DEGREE_TO_API[degree] }).catch(handleError);
     await refresh();
   },
   async selectOpt(optIntent: string, firstTime: boolean) {
@@ -167,6 +193,18 @@ export const actions = {
     await api("PUT", "/api/me/offer", body).catch(handleError);
     await refresh();
   },
+  /** Range editor: the student got their OPT I-20, so the stage moves to I20_RECEIVED with the real R. */
+  async enterDsoRecDate(date: string) {
+    await api("PUT", "/api/me/status", { ...stageDates(state.profile), stage: "I20_RECEIVED", dso_rec_date: date }).catch(handleError);
+    await refresh();
+  },
+  /** Range editor: a student without an offer picks a specific OPT start date. */
+  async pickStartDate(date: string) {
+    const p = state.profile;
+    await api("PUT", "/api/me/offer", { has_offer: false, offer_start_date: null, start_flexible: null,
+      start_preference: "SPECIFIC_DATE", preferred_start_date: date, premium_intent: YN_TO_API[p.premiumIntent] }).catch(handleError);
+    await refresh();
+  },
   async saveProcessingTimes(choices: Partial<Record<ApiProcessingTime["id"], number | null>>) {
     await api("PUT", "/api/me/processing-times", choices).catch(handleError);
     await refresh();
@@ -179,17 +217,18 @@ export const actions = {
   async deleteAccount() {
     await api("DELETE", "/api/me").catch(() => {});
     setToken(null);
-    setState({ profile: EMPTY, plan: null, onboarded: false });
+    setState({ profile: EMPTY, plan: null, onboarded: false, setupStep: "program" });
   },
   /** Start over: the backend keeps the current plan in history, then the user re-does onboarding. */
   async startOver() {
     await api("POST", "/api/me/reset").catch(handleError);
-    setState({ profile: EMPTY, plan: null, onboarded: false });
+    setState({ profile: EMPTY, plan: null, onboarded: false, setupStep: "program" });
   },
   /** Make a past plan current again. The backend moves the current plan into history. */
   async restorePlan(entryId: string) {
     await api("POST", `/api/me/history/${encodeURIComponent(entryId)}/restore`).catch(handleError);
     await refresh();
+    return state.setupStep;
   },
   async history() {
     const res = await api<{ entries: ApiHistoryEntry[] }>("GET", "/api/me/history").catch(handleError);
@@ -221,7 +260,7 @@ function subscribe(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-const SERVER_STATE: State = { profile: EMPTY, plan: null, ready: false, onboarded: false, error: "" };
+const SERVER_STATE: State = { profile: EMPTY, plan: null, ready: false, onboarded: false, setupStep: "program", error: "" };
 
 export function useDemoProfile() {
   const s = useSyncExternalStore(subscribe, () => state, () => SERVER_STATE);
@@ -232,6 +271,7 @@ export function useDemoProfile() {
     tasks: s.plan?.tasks ?? [],
     ready: s.ready,
     onboarded: s.onboarded,
+    setupStep: s.setupStep,
     error: s.error,
     save: (patch: Partial<Profile>) => { save(patch).catch(() => {}); },
     clear: () => { actions.deleteAccount(); },
@@ -283,7 +323,7 @@ function kindOf(dueType: string, date: string | null, dateState = ""): string {
   return { FEDERAL: "Federal deadline", SCHOOL: "School", RECOMMENDED: "Recommended", ESTIMATE: "Estimate", EVENT_BASED: "Estimate", USER_DECISION: "Your choice" }[dueType] ?? "Not confirmed";
 }
 
-const RISK_TEXT: Record<string, Omit<TimelineWarning, "code">> = {
+export const RISK_TEXT: Record<string, Omit<TimelineWarning, "code">> = {
   SEVIS_DATE_UNCONFIRMED: { message: "Your latest filing date is based on your I-20 issue date. The actual deadline may be earlier. Confirm your SEVIS recommendation date with UW ISS.", action: "Enter your confirmed SEVIS date", taskId: "T03" },
   AT_RISK: { message: "Based on current processing estimates, your EAD may not arrive before your offer start date.", action: "Prepare your documents now and talk to UW ISS", taskId: "T04" },
   GAP_WARNING: { message: "Your offer starts more than 60 days after your Program End Date. Your OPT start date can be no later than that, and the days in between may count as unemployment.", action: "Review your OPT start date", taskId: "T04" },

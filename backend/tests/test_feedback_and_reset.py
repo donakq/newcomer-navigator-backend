@@ -132,3 +132,25 @@ def test_cannot_restore_another_users_plan(client, auth):
                         json={"email": "other@uw.edu", "code": "000000", "tos_accepted": True}).json()["token"]
     res = client.post(f"/api/me/history/{entry_id}/restore", headers={"Authorization": f"Bearer {other}"})
     assert res.status_code == 404
+
+
+# --- Final-review fixes: setup must be able to tell which answers are missing ---
+
+
+def test_opt_selection_leaves_stage_unanswered(client):
+    token = client.post("/api/auth/email/verify",
+                        json={"email": "fresh@uw.edu", "code": "000000", "tos_accepted": True}).json()["token"]
+    h = {"Authorization": f"Bearer {token}"}
+    _onboard(client, h, "2027-06-11")
+    client.put("/api/me/opt-selection", json={"opt_intent": "AFTER_GRADUATION", "first_time_at_level": True}, headers=h)
+    assert client.get("/api/me/profile", headers=h).json()["profile"]["stage"] is None
+
+
+def test_profile_patch_rejects_end_date_that_breaks_the_plan(client, auth):
+    body = {"has_offer": False, "start_preference": "SPECIFIC_DATE", "preferred_start_date": "2027-07-01",
+            "premium_intent": "NO"}
+    assert client.put("/api/me/offer", json=body, headers=auth).status_code == 200
+    res = client.patch("/api/me/profile", json={"program_end_date": "2027-04-15"}, headers=auth)  # Jul 1 now after P+60
+    assert res.status_code == 422
+    assert res.json()["error"]["code"] == "invalid_timeline_input"
+    assert client.get("/api/me/profile", headers=auth).json()["profile"]["program_end_date"] == "2027-06-11"

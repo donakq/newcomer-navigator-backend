@@ -12,7 +12,11 @@ export default function ProfileHome() {
   async function restore(entry:ApiHistoryEntry) {
     if(!window.confirm(`Restore the plan saved ${savedOn(entry)}? Your current plan will be saved to History, so you can switch back later.`)) return;
     setRestoring(entry.id); setHistoryError("");
-    try { await actions.restorePlan(entry.id); setHistory(await actions.history()); }
+    try {
+      const step = await actions.restorePlan(entry.id);
+      if (step !== "done") { router.push("/setup"); return; }  // an older plan may be missing answers
+      setHistory(await actions.history());
+    }
     catch(e) { setHistoryError(e instanceof Error ? e.message : String(e)); }
     finally { setRestoring(null); }
   }
